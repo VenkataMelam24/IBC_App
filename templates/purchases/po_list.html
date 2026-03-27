@@ -1,0 +1,1076 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Purchase Orders{% endblock %}
+{% block nav_po %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 8px 0 0;
+        color: #6b7280;
+    }
+
+    .po-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .po-card {
+        padding: 20px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .po-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .po-title {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .po-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px 18px;
+        margin-bottom: 18px;
+    }
+
+    .meta-label {
+        display: block;
+        margin-bottom: 4px;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.9rem;
+    }
+
+    .status-pill.sent {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .status-pill.invoice {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .status-pill.mismatch {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .status-pill.price {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    th {
+        background: #f8fafc;
+        white-space: nowrap;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    .po-footer {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .po-total {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .po-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    .button-link,
+    .upload-button,
+    .action-button,
+    .danger-button,
+    .validate-button {
+        display: inline-block;
+        padding: 10px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .button-link,
+    .action-button {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .validate-button {
+        border-color: #2563eb;
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    .validate-button:disabled {
+        border-color: #bfdbfe;
+        background: #dbeafe;
+        color: #6b7280;
+        cursor: not-allowed;
+    }
+
+    .danger-button {
+        border-color: #dc2626;
+        background: #fff5f5;
+        color: #b91c1c;
+    }
+
+    .upload-form,
+    .inline-form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+    }
+
+    .upload-form {
+        justify-content: flex-end;
+    }
+
+    .invoice-upload-field {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+
+    .invoice-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .upload-form input[type="file"] {
+        max-width: 220px;
+    }
+
+    .invoice-upload-hint {
+        color: #6b7280;
+        font-size: 0.85rem;
+    }
+
+    .invoice-status {
+        color: #6b7280;
+        font-size: 0.95rem;
+    }
+
+    .note-block,
+    .validation-block {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 14px;
+    }
+
+    .note-block {
+        border: 1px solid #dbe2ea;
+        background: #f8fafc;
+    }
+
+    .note-block.mismatch {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .note-block.price {
+        border-color: #fde68a;
+        background: #fffbeb;
+        color: #92400e;
+    }
+
+    .validation-block {
+        border: 1px solid #e5e7eb;
+        background: #fafafa;
+    }
+
+    .validation-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+    }
+
+    .validation-grid h3,
+    .validation-block h3 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+    }
+
+    .validation-grid ul {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .validation-actions {
+        margin-top: 16px;
+    }
+
+    .manual-close-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .section-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .manual-reconciliation-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .reconciliation-card {
+        padding: 16px;
+        border: 1px solid #dbe2ea;
+        border-radius: 14px;
+        background: #ffffff;
+    }
+
+    .reconciliation-card h4 {
+        margin: 0 0 12px;
+        font-size: 0.98rem;
+    }
+
+    .reconciliation-grid {
+        display: grid;
+        gap: 14px;
+    }
+
+    .reconciliation-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(220px, 1fr) auto;
+        gap: 12px;
+        align-items: end;
+    }
+
+    .reconciliation-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .reconciliation-label {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    .reconciliation-value {
+        font-weight: 600;
+        color: #111827;
+    }
+
+    .reconciliation-row select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #ffffff;
+        font: inherit;
+    }
+
+    .checkbox-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+    }
+
+    .checkbox-field input {
+        margin: 0;
+    }
+
+    .helper-note {
+        margin: 0;
+        color: #6b7280;
+    }
+
+    .quantity-resolution-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .quantity-resolution-item {
+        padding: 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+
+    .quantity-resolution-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .quantity-resolution-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .quantity-resolution-option input {
+        margin-top: 3px;
+    }
+
+    .mapped-resolution-sections {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .mapped-resolution-item[hidden] {
+        display: none;
+    }
+
+    .price-comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .audit-list {
+        margin: 0;
+        padding-left: 18px;
+    }
+
+    .audit-list li + li {
+        margin-top: 8px;
+    }
+
+    .section-intro {
+        margin: 0 0 10px;
+        color: #6b7280;
+    }
+
+    .direction-up {
+        color: #166534;
+        font-weight: 600;
+    }
+
+    .direction-down {
+        color: #b91c1c;
+        font-weight: 600;
+    }
+
+    .direction-flat {
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        padding: 24px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        background: #ffffff;
+        color: #6b7280;
+    }
+
+    @media (max-width: 720px) {
+        .page-header,
+        .po-header,
+        .po-footer {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .po-actions,
+        .upload-form {
+            align-items: flex-start;
+            justify-content: flex-start;
+        }
+
+        .reconciliation-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Purchase Orders</h1>
+        <p class="page-subtitle">Active POs stay here until they validate cleanly or are closed manually.</p>
+    </div>
+</div>
+
+{% if purchase_orders %}
+    <div class="po-list">
+        {% for po in purchase_orders %}
+            <section class="po-card">
+                <div class="po-header">
+                    <div>
+                        <h2 class="po-title">{{ po.po_number }}</h2>
+                    </div>
+                    <span class="status-pill {% if po.status == 'product_mismatch' or po.status == 'quantity_mismatch' %}mismatch{% elif po.status == 'price_mismatch' %}price{% elif po.status == 'invoice_uploaded' %}invoice{% else %}sent{% endif %}">
+                        {{ po.get_status_display }}
+                    </span>
+                </div>
+
+                <div class="po-meta">
+                    <div>
+                        <span class="meta-label">Vendor</span>
+                        <strong>{{ po.vendor.name }}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Created Date</span>
+                        <strong>{{ po.created_at|date:"M d, Y H:i" }}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Created By</span>
+                        <strong>{{ po.created_by }}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Total Amount</span>
+                        <strong>{{ po.display_total_amount }}</strong>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in po.items.all %}
+                                <tr>
+                                    <td>{{ item.product.display_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.unit_price }}</td>
+                                    <td>{{ item.line_total }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="po-footer">
+                    <p class="po-total">Total: {{ po.display_total_amount }}</p>
+                    <div class="po-actions">
+                        <a class="button-link" href="{% url 'purchases:download_po_pdf' po.id %}">Download PDF</a>
+
+                        <div class="invoice-controls">
+                            <form class="upload-form" method="post" action="{% url 'purchases:upload_invoice' po.id %}" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <div class="invoice-upload-field">
+                                    {{ po.invoice_form.invoice_file }}
+                                    <span class="invoice-upload-hint">{{ po.invoice_form.invoice_file.help_text }}</span>
+                                </div>
+                                <button class="upload-button" type="submit">
+                                    {% if po.invoice_file %}Replace Invoice{% else %}Upload Invoice{% endif %}
+                                </button>
+                            </form>
+
+                            {% if po.invoice_file %}
+                                <form class="inline-form" method="post" action="{% url 'purchases:clear_invoice' po.id %}">
+                                    {% csrf_token %}
+                                    <button class="danger-button" type="submit">Clear Invoice</button>
+                                </form>
+                            {% endif %}
+                        </div>
+
+                        <div class="invoice-status">
+                            {% if po.invoice_file %}
+                                Invoice uploaded:
+                                <a href="{{ po.invoice_file.url }}">{{ po.invoice_file.name }}</a>
+                            {% else %}
+                                Invoice not uploaded yet.
+                            {% endif %}
+                        </div>
+
+                        <form class="inline-form" method="post" action="{% url 'purchases:validate_invoice' po.id %}">
+                            {% csrf_token %}
+                            <button class="validate-button" type="submit" {% if not po.invoice_file %}disabled{% endif %}>Validate</button>
+                        </form>
+                    </div>
+                </div>
+
+                {% if po.validation_note %}
+                    <div class="note-block {% if po.status == 'product_mismatch' or po.status == 'quantity_mismatch' %}mismatch{% elif po.status == 'price_mismatch' %}price{% endif %}">
+                        {{ po.validation_note }}
+                    </div>
+                {% endif %}
+
+                {% if po.validation_data.missing_products or po.validation_data.extra_products or po.validation_data.quantity_mismatches or po.validation_data.price_mismatches or po.validation_data.matched_items %}
+                    <div class="section-stack">
+                        {% if po.validation_data.missing_products %}
+                            <div class="validation-block">
+                                <h3>Missing Products</h3>
+                                <ul>
+                                    {% for item in po.validation_data.missing_products %}
+                                        <li>{{ item.product_name }} (PO qty: {{ item.quantity }})</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if po.validation_data.extra_products %}
+                            <div class="validation-block">
+                                <h3>Extra Products</h3>
+                                <ul>
+                                    {% for item in po.validation_data.extra_products %}
+                                        <li>{{ item.product_name }} (Invoice qty: {{ item.quantity }}, Unit price: {{ item.unit_price }})</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if po.validation_data.quantity_mismatches %}
+                            <div class="validation-block">
+                                <h3>Quantity Mismatches</h3>
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>PO Quantity</th>
+                                                <th>Invoice Quantity</th>
+                                                <th>Difference</th>
+                                                <th>Direction</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in po.validation_data.quantity_mismatches %}
+                                                <tr>
+                                                    <td>{{ item.product_name }}</td>
+                                                    <td>{{ item.po_quantity }}</td>
+                                                    <td>{{ item.invoice_quantity }}</td>
+                                                    <td>
+                                                        <span class="{% if item.difference|slice:':1' == '-' %}direction-down{% elif item.difference != '0' and item.difference != '0.00' %}direction-up{% else %}direction-flat{% endif %}">
+                                                            {% if item.difference|slice:':1' != '-' and item.difference != '0' and item.difference != '0.00' %}+{% endif %}{{ item.difference }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="{% if item.change_label == 'Increased' %}direction-up{% elif item.change_label == 'Decreased' %}direction-down{% else %}direction-flat{% endif %}">
+                                                            {{ item.change_label }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if po.validation_data.extra_products or po.validation_data.quantity_mismatches or po.validation_data.price_mismatches %}
+                            <div class="validation-block">
+                                <h3>Manual Reconciliation</h3>
+                                <p class="section-intro">Use this when you have physically confirmed what was received and want the system to record that decision safely.</p>
+
+                                <form class="manual-reconciliation-form" method="post" action="{% url 'purchases:manual_validate_po' po.id %}">
+                                    {% csrf_token %}
+
+                                    {% if po.validation_data.extra_products %}
+                                        <div class="reconciliation-card">
+                                            <h4>Name mismatch reconciliation</h4>
+                                            <p class="helper-note">This will validate the item and add the invoice name as a new alternative name for the selected product.</p>
+                                            <div class="reconciliation-grid">
+                                                {% for item in po.validation_data.extra_products %}
+                                                    <div class="reconciliation-row name-mismatch-row" data-invoice-item-index="{{ item.invoice_item_index }}" data-invoice-quantity="{{ item.quantity }}" data-invoice-unit-price="{{ item.unit_price }}" data-invoice-line-total="{{ item.line_total|default:'' }}">
+                                                        <div class="reconciliation-detail">
+                                                            <span class="reconciliation-label">Invoice item name</span>
+                                                            <span class="reconciliation-value">{{ item.product_name }}</span>
+                                                            <span class="reconciliation-label">Invoice qty: {{ item.quantity }} | Unit price: {{ item.unit_price }}</span>
+                                                        </div>
+                                                        <div class="reconciliation-detail">
+                                                            <span class="reconciliation-label">Map to product</span>
+                                                            <select class="name-mismatch-select" name="map_product_{{ item.invoice_item_index }}" required>
+                                                                <option value="">Select product</option>
+                                                                <optgroup label="PO Products">
+                                                                    {% for option in po.reconciliation_product_options %}
+                                                                        <option value="{{ option.id }}" data-group="{{ option.group }}" data-po-item-id="{{ option.po_item_id }}" data-po-quantity="{{ option.po_quantity }}" data-po-unit-price="{{ option.po_unit_price }}">{{ option.label }}</option>
+                                                                    {% endfor %}
+                                                                </optgroup>
+                                                            </select>
+                                                        </div>
+                                                        <label class="checkbox-field">
+                                                            <input type="checkbox" name="save_alias_{{ item.invoice_item_index }}" checked>
+                                                            <span>Save as new alternative name</span>
+                                                        </label>
+
+                                                        <div class="mapped-resolution-sections">
+                                                            <div class="quantity-resolution-item mapped-resolution-item mapped-quantity-resolution" hidden>
+                                                                <div class="reconciliation-detail">
+                                                                    <span class="reconciliation-value">Quantity mismatch after mapping</span>
+                                                                    <span class="reconciliation-label">PO quantity: <span class="mapped-po-quantity">-</span> | Invoice quantity: {{ item.quantity }}</span>
+                                                                </div>
+                                                                <div class="quantity-resolution-options">
+                                                                    <label class="quantity-resolution-option">
+                                                                        <input class="mapped-quantity-use-po" type="radio" name="mapped_quantity_resolution_{{ item.invoice_item_index }}" value="use_po_quantity">
+                                                                        <span class="mapped-quantity-use-po-label">Full quantity received physically</span>
+                                                                    </label>
+                                                                    <label class="quantity-resolution-option">
+                                                                        <input class="mapped-quantity-use-invoice" type="radio" name="mapped_quantity_resolution_{{ item.invoice_item_index }}" value="use_invoice_quantity">
+                                                                        <span class="mapped-quantity-use-invoice-label">Quantity still missing physically</span>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="quantity-resolution-item mapped-resolution-item mapped-price-resolution" hidden>
+                                                                <div class="reconciliation-detail">
+                                                                    <span class="reconciliation-value">Price mismatch after mapping</span>
+                                                                </div>
+                                                                <div class="price-comparison-grid">
+                                                                    <div class="reconciliation-detail">
+                                                                        <span class="reconciliation-label">Current / PO price</span>
+                                                                        <span class="reconciliation-value mapped-po-unit-price">-</span>
+                                                                    </div>
+                                                                    <div class="reconciliation-detail">
+                                                                        <span class="reconciliation-label">Invoice / New price</span>
+                                                                        <span class="reconciliation-value">{{ item.unit_price }}</span>
+                                                                    </div>
+                                                                    <div class="reconciliation-detail">
+                                                                        <span class="reconciliation-label">Difference</span>
+                                                                        <span class="reconciliation-value mapped-price-difference">-</span>
+                                                                    </div>
+                                                                    <div class="reconciliation-detail">
+                                                                        <span class="reconciliation-label">Percentage change</span>
+                                                                        <span class="reconciliation-value mapped-price-percentage">-</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="quantity-resolution-options">
+                                                                    <label class="quantity-resolution-option">
+                                                                        <input type="radio" name="mapped_price_decision_{{ item.invoice_item_index }}" value="accepted">
+                                                                        <span>Yes, price changed — update to new price</span>
+                                                                    </label>
+                                                                    <label class="quantity-resolution-option">
+                                                                        <input type="radio" name="mapped_price_decision_{{ item.invoice_item_index }}" value="keep_old">
+                                                                        <span>No, invoice mistake — keep old price</span>
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if po.validation_data.quantity_mismatches %}
+                                        <div class="reconciliation-card">
+                                            <h4>Quantity mismatch reconciliation</h4>
+                                            <div class="quantity-resolution-list">
+                                                {% for item in po.validation_data.quantity_mismatches %}
+                                                    <div class="quantity-resolution-item">
+                                                        <div class="reconciliation-detail">
+                                                            <span class="reconciliation-value">{{ item.product_name }}</span>
+                                                            <span class="reconciliation-label">PO quantity: {{ item.po_quantity }} | Invoice quantity: {{ item.invoice_quantity }}</span>
+                                                        </div>
+                                                        <div class="quantity-resolution-options">
+                                                            {% if item.quantity_case == 'over_delivery' %}
+                                                                <label class="quantity-resolution-option">
+                                                                    <input type="radio" name="quantity_resolution_{{ item.po_item_id }}" value="use_invoice_quantity" required>
+                                                                    <span>Accept additional quantity</span>
+                                                                </label>
+                                                                <label class="quantity-resolution-option">
+                                                                    <input type="radio" name="quantity_resolution_{{ item.po_item_id }}" value="use_po_quantity" required>
+                                                                    <span>Do not accept additional quantity</span>
+                                                                </label>
+                                                            {% else %}
+                                                                <label class="quantity-resolution-option">
+                                                                    <input type="radio" name="quantity_resolution_{{ item.po_item_id }}" value="use_po_quantity" required>
+                                                                    <span>Full quantity received physically</span>
+                                                                </label>
+                                                                <label class="quantity-resolution-option">
+                                                                    <input type="radio" name="quantity_resolution_{{ item.po_item_id }}" value="use_invoice_quantity" required>
+                                                                    <span>Quantity still missing physically</span>
+                                                                </label>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if po.validation_data.price_mismatches %}
+                                        <div class="reconciliation-card">
+                                            <h4>Price mismatch reconciliation</h4>
+                                            <div class="quantity-resolution-list">
+                                                {% for item in po.validation_data.price_mismatches %}
+                                                    <div class="quantity-resolution-item">
+                                                        <div class="reconciliation-detail">
+                                                            <span class="reconciliation-value">{{ item.product_name }}</span>
+                                                        </div>
+                                                        <div class="price-comparison-grid">
+                                                            <div class="reconciliation-detail">
+                                                                <span class="reconciliation-label">Current / PO price</span>
+                                                                <span class="reconciliation-value">{{ item.before_price }}</span>
+                                                            </div>
+                                                            <div class="reconciliation-detail">
+                                                                <span class="reconciliation-label">Invoice / New price</span>
+                                                                <span class="reconciliation-value">{{ item.updated_price }}</span>
+                                                            </div>
+                                                            <div class="reconciliation-detail">
+                                                                <span class="reconciliation-label">Difference</span>
+                                                                <span class="reconciliation-value">{% if item.difference|slice:':1' != '-' and item.difference != '0' and item.difference != '0.00' %}+{% endif %}{{ item.difference }}</span>
+                                                            </div>
+                                                            <div class="reconciliation-detail">
+                                                                <span class="reconciliation-label">Percentage change</span>
+                                                                <span class="reconciliation-value">
+                                                                    {% if item.percentage %}
+                                                                        {% if item.percentage|slice:':1' != '-' and item.percentage != '0' and item.percentage != '0.00' %}+{% endif %}{{ item.percentage }}%
+                                                                    {% else %}
+                                                                        N/A
+                                                                    {% endif %}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="quantity-resolution-options">
+                                                            <label class="quantity-resolution-option">
+                                                                <input type="radio" name="price_decision_{{ item.po_item_id }}" value="accepted" required>
+                                                                <span>Yes, price changed — update to new price</span>
+                                                            </label>
+                                                            <label class="quantity-resolution-option">
+                                                                <input type="radio" name="price_decision_{{ item.po_item_id }}" value="keep_old" required>
+                                                                <span>No, invoice mistake — keep old price</span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    <div class="validation-actions">
+                                        <button class="action-button" type="submit">Manual Validate</button>
+                                    </div>
+                                </form>
+                            </div>
+                        {% endif %}
+
+                        {% if po.validation_data.effective_net_total or po.validation_data.effective_grand_total %}
+                            <div class="validation-block">
+                                <h3>Effective PO Totals</h3>
+                                <div class="price-comparison-grid">
+                                    {% if po.validation_data.effective_net_total %}
+                                        <div class="reconciliation-detail">
+                                            <span class="reconciliation-label">Effective Net Total</span>
+                                            <span class="reconciliation-value">{{ po.validation_data.effective_net_total }}</span>
+                                        </div>
+                                    {% endif %}
+                                    {% if po.validation_data.effective_tax_total %}
+                                        <div class="reconciliation-detail">
+                                            <span class="reconciliation-label">Invoice Tax Total</span>
+                                            <span class="reconciliation-value">{{ po.validation_data.effective_tax_total }}</span>
+                                        </div>
+                                    {% endif %}
+                                    {% if po.validation_data.effective_grand_total %}
+                                        <div class="reconciliation-detail">
+                                            <span class="reconciliation-label">Effective Grand Total</span>
+                                            <span class="reconciliation-value">{{ po.validation_data.effective_grand_total }}</span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if po.audit_notes %}
+                            <div class="validation-block">
+                                <h3>Audit Trail</h3>
+                                <ul class="audit-list">
+                                    {% for note in po.audit_notes %}
+                                        <li>{{ note }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+
+                        {% if po.validation_data.matched_items %}
+                            <div class="validation-block">
+                                <h3>Fully Matched Items</h3>
+                                <div class="table-wrap">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>Quantity</th>
+                                                <th>Unit Price</th>
+                                                <th>Line Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in po.validation_data.matched_items %}
+                                                <tr>
+                                                    <td>{{ item.product_name }}</td>
+                                                    <td>{{ item.quantity }}</td>
+                                                    <td>{{ item.unit_price }}</td>
+                                                    <td>{{ item.line_total }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if po.validation_data.requires_manual_close %}
+                            <div class="validation-actions">
+                                {% if po.validation_data.price_mismatches %}
+                                    <p class="section-intro">Do you also want to update the invoice prices for the matched products?</p>
+                                    <div class="manual-close-actions">
+                                        <form class="inline-form" method="post" action="{% url 'purchases:close_po_manually_with_prices' po.id %}">
+                                            {% csrf_token %}
+                                            <button class="action-button" type="submit">Close and Update Prices</button>
+                                        </form>
+                                        <form class="inline-form" method="post" action="{% url 'purchases:close_po_manually' po.id %}">
+                                            {% csrf_token %}
+                                            <button class="danger-button" type="submit">Close Only</button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <form class="inline-form" method="post" action="{% url 'purchases:close_po_manually' po.id %}">
+                                        {% csrf_token %}
+                                        <button class="danger-button" type="submit">Close Manually</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </section>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <p>No active purchase orders available</p>
+    </div>
+{% endif %}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const forms = document.querySelectorAll(".manual-reconciliation-form");
+
+        function numbersMatch(leftValue, rightValue) {
+            const left = Number(leftValue);
+            const right = Number(rightValue);
+            if (!Number.isFinite(left) || !Number.isFinite(right)) {
+                return false;
+            }
+            return Math.abs(left - right) < 0.0001;
+        }
+
+        function parseNumber(value) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function formatQuantity(value) {
+            const parsed = parseNumber(value);
+            if (parsed === null) {
+                return "-";
+            }
+            if (Math.abs(parsed - Math.round(parsed)) < 0.0001) {
+                return String(Math.round(parsed));
+            }
+            return parsed.toFixed(2);
+        }
+
+        function formatMoney(value) {
+            const parsed = parseNumber(value);
+            if (parsed === null) {
+                return "-";
+            }
+            return parsed.toFixed(2);
+        }
+
+        function toggleRequired(container, required) {
+            container.querySelectorAll("input[type='radio']").forEach(function (input) {
+                input.required = required;
+                if (!required) {
+                    input.checked = false;
+                }
+            });
+        }
+
+        function selectedRadioValue(container, name) {
+            const selected = container.querySelector(`input[name="${name}"]:checked`);
+            return selected ? selected.value : "";
+        }
+
+        function updateMappedResolutionRow(row) {
+            const select = row.querySelector(".name-mismatch-select");
+            const selectedOption = select.options[select.selectedIndex];
+            const invoiceQuantity = row.dataset.invoiceQuantity || "";
+            const invoiceUnitPrice = row.dataset.invoiceUnitPrice || "";
+            const poQuantity = selectedOption ? selectedOption.dataset.poQuantity || "" : "";
+            const poUnitPrice = selectedOption ? selectedOption.dataset.poUnitPrice || "" : "";
+            const invoiceItemIndex = row.dataset.invoiceItemIndex || "";
+            const selectedQuantityResolution = selectedRadioValue(
+                row,
+                `mapped_quantity_resolution_${invoiceItemIndex}`
+            );
+            const selectedPriceDecision = selectedRadioValue(
+                row,
+                `mapped_price_decision_${invoiceItemIndex}`
+            );
+
+            const quantitySection = row.querySelector(".mapped-quantity-resolution");
+            const priceSection = row.querySelector(".mapped-price-resolution");
+            const poQuantityLabel = row.querySelector(".mapped-po-quantity");
+            const poUnitPriceLabel = row.querySelector(".mapped-po-unit-price");
+            const quantityUsePoLabel = row.querySelector(".mapped-quantity-use-po-label");
+            const quantityUseInvoiceLabel = row.querySelector(".mapped-quantity-use-invoice-label");
+            const priceDifferenceLabel = row.querySelector(".mapped-price-difference");
+            const pricePercentageLabel = row.querySelector(".mapped-price-percentage");
+
+            const hasPoQuantity = poQuantity !== "";
+            const hasPoUnitPrice = poUnitPrice !== "";
+            const isOverDelivery = hasPoQuantity && parseNumber(invoiceQuantity) !== null && parseNumber(poQuantity) !== null
+                ? parseNumber(invoiceQuantity) > parseNumber(poQuantity)
+                : false;
+            const showQuantity = hasPoQuantity && !numbersMatch(poQuantity, invoiceQuantity);
+            const showPrice = hasPoUnitPrice && !numbersMatch(poUnitPrice, invoiceUnitPrice);
+
+            if (poQuantityLabel) {
+                poQuantityLabel.textContent = poQuantity || "-";
+            }
+            if (poUnitPriceLabel) {
+                poUnitPriceLabel.textContent = poUnitPrice || "-";
+            }
+            if (quantityUsePoLabel) {
+                quantityUsePoLabel.textContent = isOverDelivery
+                    ? "Do not accept additional quantity"
+                    : "Full quantity received physically";
+            }
+            if (quantityUseInvoiceLabel) {
+                quantityUseInvoiceLabel.textContent = isOverDelivery
+                    ? "Accept additional quantity"
+                    : "Quantity still missing physically";
+            }
+            if (priceDifferenceLabel) {
+                if (showPrice) {
+                    const difference = Number(invoiceUnitPrice) - Number(poUnitPrice);
+                    const prefix = difference > 0 ? "+" : "";
+                    priceDifferenceLabel.textContent = `${prefix}${difference.toFixed(2)}`;
+                } else {
+                    priceDifferenceLabel.textContent = "-";
+                }
+            }
+            if (pricePercentageLabel) {
+                if (showPrice && Number(poUnitPrice) !== 0) {
+                    const percentage = ((Number(invoiceUnitPrice) - Number(poUnitPrice)) / Number(poUnitPrice)) * 100;
+                    const prefix = percentage > 0 ? "+" : "";
+                    pricePercentageLabel.textContent = `${prefix}${percentage.toFixed(2)}%`;
+                } else if (showPrice) {
+                    pricePercentageLabel.textContent = "N/A";
+                } else {
+                    pricePercentageLabel.textContent = "-";
+                }
+            }
+
+            if (quantitySection) {
+                quantitySection.hidden = !showQuantity;
+                toggleRequired(quantitySection, showQuantity);
+            }
+            if (priceSection) {
+                priceSection.hidden = !showPrice;
+                toggleRequired(priceSection, showPrice);
+            }
+        }
+
+        forms.forEach(function (form) {
+            form.querySelectorAll(".name-mismatch-row").forEach(function (row) {
+                const select = row.querySelector(".name-mismatch-select");
+                if (!select) {
+                    return;
+                }
+
+                select.addEventListener("change", function () {
+                    updateMappedResolutionRow(row);
+                });
+
+                row.querySelectorAll("input[type='radio']").forEach(function (input) {
+                    input.addEventListener("change", function () {
+                        updateMappedResolutionRow(row);
+                    });
+                });
+
+                updateMappedResolutionRow(row);
+            });
+        });
+    });
+</script>
+{% endblock %}

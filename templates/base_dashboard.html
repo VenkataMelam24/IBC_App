@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IBC{% endblock %}</title>
+    <style>
+        :root {
+            --bg: #f4f6f8;
+            --panel: #ffffff;
+            --sidebar: #5f1026;
+            --sidebar-active: #7b1a38;
+            --sidebar-muted: #e7c6d0;
+            --sidebar-link: #fff5f7;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #dbe2ea;
+            --accent: #7b1a38;
+            --accent-dark: #5d142b;
+            --accent-soft: #f7e8ed;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            width: 250px;
+            flex: 0 0 250px;
+            height: 100vh;
+            padding: 24px 20px;
+            background: var(--sidebar);
+            color: var(--sidebar-link);
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            margin: 0 0 28px;
+            font-size: 1.4rem;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            color: var(--sidebar-link);
+            text-decoration: none;
+            background: transparent;
+        }
+
+        .nav-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cart-badge {
+            display: inline-flex;
+            min-width: 24px;
+            height: 24px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: #f6d9e2;
+            color: #5d142b;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
+            background: var(--sidebar-active);
+        }
+
+        .sidebar-note {
+            margin-top: 28px;
+            color: var(--sidebar-muted);
+            font-size: 0.9rem;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 20px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .sidebar-logout-form {
+            margin: 0;
+        }
+
+        .sidebar-logout-button {
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0 14px;
+            border: 1px solid rgba(255, 245, 247, 0.18);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--sidebar-link);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .sidebar-logout-button:hover,
+        .sidebar-logout-button:focus-visible {
+            background: rgba(255, 255, 255, 0.14);
+            outline: none;
+        }
+
+        .content {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            padding: 28px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .content a:not(.action-button):not(.button-link):not(.primary-button):not(.filter-button):not(.apply-button):not(.send-button):not(.clear-button):not(.secondary-button):not(.delete-button):not(.danger-button):not(.validate-button) {
+            color: var(--accent);
+        }
+
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button) {
+            color: #ffffff !important;
+        }
+
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):visited,
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):hover,
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):focus,
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):focus-visible {
+            color: #ffffff !important;
+        }
+
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):hover,
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):focus-visible {
+            border-color: var(--accent-dark);
+            background: var(--accent-dark);
+        }
+
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button):disabled,
+        .content :is(a.action-button, a.button-link, a.primary-button, a.filter-button, a.apply-button, a.send-button, button.action-button, button.primary-button, button.filter-button, button.apply-button, button.send-button)[aria-disabled="true"] {
+            color: #ffffff !important;
+            opacity: 0.7;
+        }
+
+        .messages {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            padding: 14px 16px;
+            border: 1px solid #dbe2ea;
+            border-radius: 14px;
+            background: #ffffff;
+        }
+
+        .message.success {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #115e59;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex: 0 0 auto;
+                height: auto;
+            }
+
+            .content {
+                flex: 1 1 auto;
+                min-height: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <h1 class="sidebar-title">IBC</h1>
+            <nav class="sidebar-nav">
+                <a href="{% url 'inventory:master_inventory' %}" class="{% block nav_master_inventory %}{% endblock %}">
+                    <span class="nav-label">Master Inventory</span>
+                </a>
+                <a href="{% url 'inventory:product_list' %}" class="{% block nav_products %}{% endblock %}">
+                    <span class="nav-label">Products</span>
+                </a>
+                <a href="{% url 'carting:cart_detail' %}" class="{% block nav_cart %}{% endblock %}" data-cart-nav-link>
+                    <span class="nav-label">Cart</span>
+                    {% if cart_item_count %}
+                        <span class="cart-badge" data-cart-nav-badge>{{ cart_item_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'purchases:po_list' %}" class="{% block nav_po %}{% endblock %}">
+                    <span class="nav-label">PO</span>
+                    {% if active_purchase_order_count %}
+                        <span class="cart-badge">{{ active_purchase_order_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{% url 'purchases:history_list' %}" class="{% block nav_history %}{% endblock %}">
+                    <span class="nav-label">History</span>
+                </a>
+                <a href="{% url 'inventory:price_tracker' %}" class="{% block nav_price_tracker %}{% endblock %}">
+                    <span class="nav-label">Price Tracker</span>
+                </a>
+                <a href="{% url 'analytics:analytics_dashboard' %}" class="{% block nav_analytics %}{% endblock %}">
+                    <span class="nav-label">Analytics</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <p class="sidebar-note">Inventory ordering dashboard</p>
+                <form method="post" action="{% url 'accounts:logout' %}" class="sidebar-logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="sidebar-logout-button">Log Out</button>
+                </form>
+            </div>
+        </aside>
+
+        <main class="content">
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        window.IBCDashboard = window.IBCDashboard || {};
+        window.IBCDashboard.updateCartBadge = function updateCartBadge(count) {
+            const cartLink = document.querySelector("[data-cart-nav-link]");
+            if (!cartLink) {
+                return;
+            }
+
+            let badge = cartLink.querySelector("[data-cart-nav-badge]");
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement("span");
+                    badge.className = "cart-badge";
+                    badge.setAttribute("data-cart-nav-badge", "");
+                    cartLink.appendChild(badge);
+                }
+                badge.textContent = count;
+                return;
+            }
+
+            if (badge) {
+                badge.remove();
+            }
+        };
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

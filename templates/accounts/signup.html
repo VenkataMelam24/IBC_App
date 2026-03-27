@@ -1,0 +1,25 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}Create your IBC account{% endblock %}
+{% block panel_eyebrow %}Signup{% endblock %}
+
+{% block auth_panel %}
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <ul class="form-errors">
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% include "accounts/_form_fields.html" %}
+        <div class="auth-actions">
+            <button type="submit" class="auth-button">Create account</button>
+        </div>
+    </form>
+
+    <div class="auth-meta">
+        <span>Already registered? <a href="{% url 'accounts:login' %}">Log In</a></span>
+    </div>
+{% endblock %}

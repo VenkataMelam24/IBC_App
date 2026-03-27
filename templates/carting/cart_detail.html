@@ -1,0 +1,381 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Cart{% endblock %}
+{% block nav_cart %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 6px 0 0;
+        color: #6b7280;
+    }
+
+    .back-link {
+        display: inline-block;
+        padding: 10px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .vendor-groups {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .vendor-card {
+        padding: 20px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .vendor-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .vendor-title {
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    th {
+        color: #6b7280;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    .quantity-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quantity-value {
+        min-width: 24px;
+        text-align: center;
+    }
+
+    .inline-form {
+        display: inline;
+        margin: 0;
+    }
+
+    .icon-button,
+    .remove-button,
+    .send-button {
+        padding: 8px 12px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .icon-button {
+        min-width: 36px;
+        padding: 8px 10px;
+    }
+
+    .remove-button {
+        color: #b91c1c;
+        border-color: #fecaca;
+        background: #fff5f5;
+    }
+
+    .vendor-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .vendor-subtotal {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .send-actions {
+        text-align: right;
+    }
+
+    .send-form {
+        margin: 0;
+    }
+
+    .send-button {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .grand-total {
+        margin-top: 24px;
+        padding: 18px 20px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+        text-align: right;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        padding: 24px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        background: #ffffff;
+        color: #6b7280;
+    }
+
+    .icon-button:disabled,
+    .remove-button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+    }
+
+    .send-note {
+        margin-top: 6px;
+        color: #6b7280;
+        font-size: 0.9rem;
+        text-align: right;
+    }
+
+    @media (max-width: 720px) {
+        .page-header,
+        .vendor-header,
+        .vendor-footer {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .grand-total,
+        .send-note {
+            text-align: left;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Cart</h1>
+        <p class="page-subtitle">Review items grouped by vendor before sending.</p>
+    </div>
+    <a class="back-link" href="{% url 'inventory:product_list' %}">Back to Products</a>
+</div>
+
+<div data-cart-body>
+{% if vendor_groups %}
+    <div class="vendor-groups">
+        {% for group in vendor_groups %}
+            <section class="vendor-card" data-vendor-card data-vendor-id="{{ group.vendor.id }}">
+                <div class="vendor-header">
+                    <h2 class="vendor-title">{{ group.vendor.name }}</h2>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Line Total</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in group.items %}
+                                <tr data-cart-item-row data-cart-item-id="{{ item.id }}">
+                                    <td>{{ item.product.display_name }}</td>
+                                    <td>
+                                        <div class="quantity-controls">
+                                            <form class="inline-form" method="post" action="{% url 'carting:decrease_cart_item' item.id %}" data-cart-ajax-form>
+                                                {% csrf_token %}
+                                                <button class="icon-button" type="submit" aria-label="Decrease quantity">-</button>
+                                            </form>
+                                            <span class="quantity-value" data-cart-item-quantity>{{ item.quantity }}</span>
+                                            <form class="inline-form" method="post" action="{% url 'carting:increase_cart_item' item.id %}" data-cart-ajax-form>
+                                                {% csrf_token %}
+                                                <button class="icon-button" type="submit" aria-label="Increase quantity">+</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                    <td>{{ item.unit_price }}</td>
+                                    <td data-cart-item-line-total>{{ item.line_total }}</td>
+                                    <td>
+                                        <form class="inline-form" method="post" action="{% url 'carting:remove_cart_item' item.id %}" data-cart-ajax-form>
+                                            {% csrf_token %}
+                                            <button class="remove-button" type="submit">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="vendor-footer">
+                    <p class="vendor-subtotal">Vendor subtotal: <span data-vendor-subtotal>{{ group.subtotal }}</span></p>
+                    <div class="send-actions">
+                        <form class="send-form" method="post" action="{% url 'purchases:create_po_from_cart_vendor' group.vendor.id %}">
+                            {% csrf_token %}
+                            <button class="send-button" type="submit">Send</button>
+                        </form>
+                        <p class="send-note">Creates a PO and removes these items from cart.</p>
+                    </div>
+                </div>
+            </section>
+        {% endfor %}
+    </div>
+
+    <div class="grand-total" data-cart-grand-total>
+        Grand total: <span data-cart-grand-total-value>{{ grand_total }}</span>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <p>Cart is empty</p>
+    </div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const cartBody = document.querySelector("[data-cart-body]");
+        if (!cartBody) {
+            return;
+        }
+
+        function renderEmptyCart() {
+            cartBody.innerHTML = '<div class="empty-state"><p>Cart is empty</p></div>';
+        }
+
+        async function submitCartUpdate(form) {
+            const formButtons = form.querySelectorAll("button");
+            formButtons.forEach(function (button) {
+                button.disabled = true;
+            });
+
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    credentials: "same-origin",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error("Request failed");
+                }
+
+                const data = await response.json();
+                const row = document.querySelector('[data-cart-item-row][data-cart-item-id="' + data.cart_item_id + '"]');
+                const vendorCard = document.querySelector('[data-vendor-card][data-vendor-id="' + data.vendor_id + '"]');
+                const grandTotal = document.querySelector("[data-cart-grand-total-value]");
+
+                window.IBCDashboard.updateCartBadge(data.cart_count);
+
+                if (data.removed && row) {
+                    row.remove();
+                }
+
+                if (!data.removed && row) {
+                    const quantity = row.querySelector("[data-cart-item-quantity]");
+                    const lineTotal = row.querySelector("[data-cart-item-line-total]");
+
+                    if (quantity) {
+                        quantity.textContent = data.quantity;
+                    }
+                    if (lineTotal) {
+                        lineTotal.textContent = data.line_total;
+                    }
+                }
+
+                if (data.cart_empty) {
+                    renderEmptyCart();
+                    return;
+                }
+
+                if (data.vendor_empty && vendorCard) {
+                    vendorCard.remove();
+                } else if (vendorCard) {
+                    const vendorSubtotal = vendorCard.querySelector("[data-vendor-subtotal]");
+                    if (vendorSubtotal) {
+                        vendorSubtotal.textContent = data.vendor_subtotal;
+                    }
+                }
+
+                if (grandTotal) {
+                    grandTotal.textContent = data.grand_total;
+                }
+            } catch (error) {
+                window.location.reload();
+            } finally {
+                formButtons.forEach(function (button) {
+                    button.disabled = false;
+                });
+            }
+        }
+
+        cartBody.addEventListener("submit", function (event) {
+            const form = event.target.closest("[data-cart-ajax-form]");
+            if (!form) {
+                return;
+            }
+
+            event.preventDefault();
+            submitCartUpdate(form);
+        });
+    });
+</script>
+{% endblock %}

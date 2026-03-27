@@ -1,0 +1,34 @@
+{% extends "accounts/base_auth.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block panel_eyebrow %}OTP Verification{% endblock %}
+
+{% block auth_panel %}
+    {% if otp_email %}
+        <p class="auth-helper">
+            Code sent to <strong>{{ otp_email }}</strong>. This 6-digit OTP expires in 10 minutes and can be used only once.
+        </p>
+    {% endif %}
+
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <ul class="form-errors">
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% include "accounts/_form_fields.html" %}
+        <div class="auth-actions">
+            <button type="submit" class="auth-button">Verify OTP</button>
+            {% if otp_resend_available %}
+                <button type="submit" name="resend_otp" value="1" class="auth-button-secondary">Resend OTP</button>
+            {% endif %}
+        </div>
+    </form>
+
+    <div class="auth-meta">
+        <a href="{% url 'accounts:landing' %}">Back to landing</a>
+    </div>
+{% endblock %}

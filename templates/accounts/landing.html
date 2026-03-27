@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Biryani Company | Access</title>
+    <style>
+        :root {
+            --bg: #f6efe9;
+            --ink: #231116;
+            --muted: #8b6e77;
+            --brand: #5f1026;
+            --brand-dark: #4b0b1d;
+            --brand-soft: #f4dde3;
+            --panel: rgba(255, 255, 255, 0.92);
+            --border: rgba(95, 16, 38, 0.1);
+            --shadow: 0 28px 70px rgba(95, 16, 38, 0.16);
+            --saffron: #d97706;
+            --success: #166534;
+            --danger: #b42318;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(217, 119, 6, 0.14), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(95, 16, 38, 0.12), transparent 38%),
+                linear-gradient(135deg, #fdf8f3 0%, #f7ede6 48%, #f6f0eb 100%);
+        }
+
+        .landing-shell {
+            width: min(440px, 100%);
+        }
+
+        .landing-card {
+            padding: 42px 36px 34px;
+            border-radius: 28px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            text-align: center;
+            backdrop-filter: blur(14px);
+        }
+
+        .welcome-label {
+            margin: 0 0 14px;
+            color: var(--saffron);
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .brand-title {
+            margin: 0;
+            font-family: "Georgia", "Times New Roman", serif;
+            font-size: clamp(2rem, 5vw, 2.75rem);
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+        }
+
+        .messages {
+            display: grid;
+            gap: 10px;
+            margin: 22px 0 0;
+            text-align: left;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            font-size: 0.93rem;
+            line-height: 1.5;
+        }
+
+        .message.error {
+            border-color: rgba(180, 35, 24, 0.18);
+            background: #fff4f3;
+            color: var(--danger);
+        }
+
+        .message.success {
+            border-color: rgba(22, 101, 52, 0.18);
+            background: #f0fdf4;
+            color: var(--success);
+        }
+
+        .landing-actions {
+            display: grid;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        .landing-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 50px;
+            padding: 0 18px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            font-size: 0.96rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+        }
+
+        .landing-button:hover,
+        .landing-button:focus-visible {
+            transform: translateY(-1px);
+            outline: none;
+        }
+
+        .landing-button-primary {
+            background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+            color: #ffffff;
+            box-shadow: 0 18px 28px rgba(95, 16, 38, 0.18);
+        }
+
+        .landing-button-secondary {
+            background: var(--brand-soft);
+            border-color: rgba(95, 16, 38, 0.12);
+            color: var(--brand);
+        }
+    </style>
+</head>
+<body>
+    <main class="landing-shell">
+        <section class="landing-card">
+            <p class="welcome-label">Welcome</p>
+            <h1 class="brand-title">Indian Biryani Company</h1>
+
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="landing-actions">
+                <a class="landing-button landing-button-primary" href="{% url 'accounts:login' %}">Log In</a>
+                <a class="landing-button landing-button-secondary" href="{% url 'accounts:signup' %}">Create Account</a>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,0 +1,471 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}IBC{% endblock %}
+{% block nav_products %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .page-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 6px 0 0;
+        color: #6b7280;
+    }
+
+    .search-filter-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .toolbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .search-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+    }
+
+    .search-box {
+        flex: 1;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 12px;
+        background: #ffffff;
+        font: inherit;
+    }
+
+    .filters-panel {
+        min-width: 240px;
+    }
+
+    .filters-summary {
+        list-style: none;
+        padding: 10px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #111827;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .filters-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .filters-content {
+        margin-top: 10px;
+        padding: 16px;
+        border: 1px solid #dbe2ea;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+
+    .filters-heading {
+        margin: 0 0 12px;
+        font-size: 1rem;
+    }
+
+    .vendor-options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+    .vendor-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #374151;
+    }
+
+    .vendor-option input {
+        margin: 0;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .apply-button,
+    .clear-button {
+        display: inline-block;
+        padding: 10px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        text-decoration: none;
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .apply-button {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .search-clear {
+        white-space: nowrap;
+    }
+
+    .active-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .filter-pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-dark);
+        font-size: 0.9rem;
+    }
+
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+    }
+
+    .product-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .product-image,
+    .product-image-placeholder {
+        width: 100%;
+        height: 180px;
+        border-radius: 12px;
+        object-fit: cover;
+        background: #e5e7eb;
+    }
+
+    .product-image-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+    }
+
+    .product-name {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .pack-details {
+        margin: 0;
+        color: #6b7280;
+    }
+
+    .vendor-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vendor-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #f8fafc;
+    }
+
+    .vendor-name,
+    .vendor-price {
+        margin: 0;
+    }
+
+    .vendor-actions {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .add-to-cart-form {
+        margin: 0;
+    }
+
+    .add-button {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #ffffff;
+        font-size: 1.1rem;
+        cursor: pointer;
+    }
+
+    .add-button:hover {
+        background: var(--accent-dark);
+    }
+
+    .add-button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+    }
+
+    .cart-feedback {
+        min-height: 1.1em;
+        color: #166534;
+        font-size: 0.85rem;
+    }
+
+    .cart-feedback.is-error {
+        color: #b91c1c;
+    }
+
+    .empty-message {
+        padding: 20px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 14px;
+        background: #ffffff;
+        color: #6b7280;
+    }
+
+    @media (max-width: 640px) {
+        .page-top,
+        .toolbar {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .search-controls {
+            width: 100%;
+        }
+
+        .filters-panel {
+            width: 100%;
+        }
+
+        .vendor-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .vendor-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-top">
+        <div>
+            <h1 class="page-title">IBC</h1>
+            <p class="page-subtitle">Products</p>
+        </div>
+    </div>
+
+    <form class="search-filter-form" method="get">
+        <div class="toolbar">
+            <div class="search-controls">
+                <div class="search-box">
+                    <input
+                        class="search-input"
+                        type="search"
+                        name="q"
+                        value="{{ search_query }}"
+                        placeholder="Search products"
+                        aria-label="Search products"
+                    >
+                </div>
+                <a class="clear-button search-clear" href="{% url 'inventory:product_list' %}">Clear</a>
+            </div>
+
+            <details class="filters-panel" {% if selected_vendor_ids %}open{% endif %}>
+                <summary class="filters-summary">Filters</summary>
+                <div class="filters-content">
+                    <h2 class="filters-heading">Filter by Vendor</h2>
+                    <div class="vendor-options">
+                        {% for vendor in vendors %}
+                            <label class="vendor-option">
+                                <input
+                                    type="checkbox"
+                                    name="vendor"
+                                    value="{{ vendor.id }}"
+                                    {% if vendor.id in selected_vendor_ids %}checked{% endif %}
+                                >
+                                <span>{{ vendor.name }}</span>
+                            </label>
+                        {% empty %}
+                            <p class="empty-message">No active vendors available</p>
+                        {% endfor %}
+                    </div>
+                    <div class="filter-actions">
+                        <button class="apply-button" type="submit">Apply</button>
+                        <a class="clear-button" href="{% url 'inventory:product_list' %}">Clear</a>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </form>
+
+    {% if search_query or selected_vendor_ids %}
+        <div class="active-filters">
+            {% if search_query %}
+                <span class="filter-pill">Search: {{ search_query }}</span>
+            {% endif %}
+            {% for vendor in vendors %}
+                {% if vendor.id in selected_vendor_ids %}
+                    <span class="filter-pill">Vendor: {{ vendor.name }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+{% if products %}
+    <div class="product-grid">
+        {% for product in products %}
+            <section class="product-card">
+                {% if product.image %}
+                    <img class="product-image" src="{{ product.image.url }}" alt="{{ product.display_name }}">
+                {% else %}
+                    <div class="product-image-placeholder">No image</div>
+                {% endif %}
+
+                <div>
+                    <h2 class="product-name">{{ product.display_name }}</h2>
+                    <p class="pack-details">{{ product.quantity_per_pack }} {{ product.quantity_unit }}</p>
+                </div>
+
+                <div class="vendor-list">
+                    {% for vendor_price in product.active_vendor_prices %}
+                        <div class="vendor-row">
+                            <p class="vendor-name">{{ vendor_price.vendor.name }}</p>
+                            <div class="vendor-actions">
+                                <p class="vendor-price">{{ vendor_price.formatted_price }} {{ vendor_price.currency }}</p>
+                                <form
+                                    class="add-to-cart-form"
+                                    method="post"
+                                    action="{% url 'carting:add_to_cart' product.id vendor_price.vendor.id %}"
+                                    data-add-to-cart-form
+                                >
+                                    {% csrf_token %}
+                                    <button class="add-button" type="submit" aria-label="Add {{ product.display_name }} from {{ vendor_price.vendor.name }} to cart">+</button>
+                                </form>
+                                <span class="cart-feedback" data-cart-feedback aria-live="polite">
+                                    {% if vendor_price.cart_quantity %}In cart: {{ vendor_price.cart_quantity }}{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="empty-message">No active vendor prices available</p>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="empty-message">No products available</p>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const addToCartForms = document.querySelectorAll("[data-add-to-cart-form]");
+        if (!addToCartForms.length) {
+            return;
+        }
+
+        async function submitAddToCart(form) {
+            const button = form.querySelector("button");
+            const feedback = form.parentElement.querySelector("[data-cart-feedback]");
+
+            button.disabled = true;
+            if (feedback) {
+                feedback.classList.remove("is-error");
+            }
+
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    credentials: "same-origin",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error("Request failed");
+                }
+
+                const data = await response.json();
+                window.IBCDashboard.updateCartBadge(data.cart_count);
+
+                if (feedback) {
+                    feedback.textContent = "In cart: " + data.quantity;
+                }
+            } catch (error) {
+                if (feedback) {
+                    feedback.textContent = "Could not update cart. Try again.";
+                    feedback.classList.add("is-error");
+                }
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        addToCartForms.forEach(function (form) {
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                submitAddToCart(form);
+            });
+        });
+    });
+</script>
+{% endblock %}

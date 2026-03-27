@@ -1,0 +1,246 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Price Tracker{% endblock %}
+{% block nav_price_tracker %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 8px 0 0;
+        color: #6b7280;
+    }
+
+    .filter-card {
+        margin-bottom: 24px;
+        padding: 20px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .filter-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        align-items: end;
+    }
+
+    .filter-field label {
+        display: block;
+        margin-bottom: 6px;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .filter-field input,
+    .filter-field select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        font: inherit;
+    }
+
+    .filter-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .filter-button,
+    .clear-button {
+        display: inline-block;
+        padding: 10px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .filter-button {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 14px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    th {
+        background: #f8fafc;
+        white-space: nowrap;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    .difference-up {
+        color: #166534;
+        font-weight: 600;
+    }
+
+    .difference-down {
+        color: #b91c1c;
+        font-weight: 600;
+    }
+
+    .difference-flat {
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+    .source-pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-dark);
+        font-size: 0.9rem;
+    }
+
+    .empty-state {
+        padding: 24px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        background: #ffffff;
+        color: #6b7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Price Tracker</h1>
+    <p class="page-subtitle">Track vendor price changes from master inventory and invoice validation updates.</p>
+</div>
+
+<section class="filter-card">
+    <form method="get" class="filter-form">
+        <div class="filter-field">
+            <label for="tracker-product">Product</label>
+            <select id="tracker-product" name="product">
+                <option value="">All products</option>
+                {% for product in products %}
+                    <option value="{{ product.id }}" {% if selected_product_id == product.id|stringformat:"s" %}selected{% endif %}>
+                        {{ product.display_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="tracker-vendor">Vendor</label>
+            <select id="tracker-vendor" name="vendor">
+                <option value="">All vendors</option>
+                {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}" {% if selected_vendor_id == vendor.id|stringformat:"s" %}selected{% endif %}>
+                        {{ vendor.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="tracker-date-from">Date From</label>
+            <input id="tracker-date-from" type="date" name="date_from" value="{{ date_from }}">
+        </div>
+
+        <div class="filter-field">
+            <label for="tracker-date-to">Date To</label>
+            <input id="tracker-date-to" type="date" name="date_to" value="{{ date_to }}">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Apply</button>
+            <a href="{% url 'inventory:price_tracker' %}" class="clear-button">Clear</a>
+        </div>
+    </form>
+</section>
+
+{% if history_entries %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Vendor</th>
+                    <th>Previous Price</th>
+                    <th>New Price</th>
+                    <th>Difference</th>
+                    <th>Change %</th>
+                    <th>Change Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in history_entries %}
+                    <tr>
+                        <td>{{ entry.date|date:"M d, Y" }}</td>
+                        <td>{{ entry.product.display_name }}</td>
+                        <td>{{ entry.vendor.name }}</td>
+                        <td>{% if entry.has_previous_price %}{{ entry.previous_price|floatformat:2 }}{% else %}-{% endif %}</td>
+                        <td>{{ entry.effective_new_price|floatformat:2 }}</td>
+                        <td>
+                            {% if entry.has_difference %}
+                                <span class="{% if entry.difference > 0 %}difference-up{% elif entry.difference < 0 %}difference-down{% else %}difference-flat{% endif %}">
+                                    {% if entry.difference > 0 %}+{% endif %}{{ entry.difference|floatformat:2 }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if entry.has_change_percentage %}
+                                <span class="{% if entry.change_percentage > 0 %}difference-up{% elif entry.change_percentage < 0 %}difference-down{% else %}difference-flat{% endif %}">
+                                    {% if entry.change_percentage > 0 %}+{% endif %}{{ entry.change_percentage|floatformat:2 }}%
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="source-pill">{{ entry.get_change_source_display }}</span>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <p>No price history available</p>
+    </div>
+{% endif %}
+{% endblock %}

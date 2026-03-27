@@ -1,0 +1,268 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}{{ page_heading }}{% endblock %}
+{% block nav_master_inventory %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-shell {
+        max-width: 760px;
+        padding: 24px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .page-title {
+        margin: 0 0 8px;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 0 0 24px;
+        color: #6b7280;
+    }
+
+    .field-group {
+        margin-bottom: 18px;
+    }
+
+    .field-group.is-hidden {
+        display: none;
+    }
+
+    .field-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .field-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .field-label-row label {
+        margin-bottom: 0;
+    }
+
+    .field-group input,
+    .field-group select,
+    .field-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font: inherit;
+    }
+
+    .field-errors {
+        margin: 8px 0 0;
+        color: #b91c1c;
+    }
+
+    .current-image {
+        margin-top: 8px;
+        width: 120px;
+        border-radius: 12px;
+    }
+
+    .alias-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .alias-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alias-row input {
+        flex: 1;
+        margin: 0;
+    }
+
+    .alias-action-button {
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        font: inherit;
+        font-size: 1.25rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .alias-action-button.is-hidden {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    .primary-button,
+    .secondary-button {
+        display: inline-block;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #dbe2ea;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .primary-button {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .non-field-errors {
+        margin-bottom: 18px;
+        color: #b91c1c;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-shell">
+    <h1 class="page-title">{{ page_heading }}</h1>
+    <p class="page-subtitle">Maintain product details inside the dashboard.</p>
+
+    {% if form.non_field_errors %}
+        <div class="non-field-errors">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div
+                class="field-group {% if field.name == 'custom_pack_type' and form.pack_type.value != 'other' %}is-hidden{% endif %}"
+                {% if field.name == "custom_pack_type" %}id="custom-pack-type-group"{% endif %}
+            >
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.name == "image" and product and product.image %}
+                    <img class="current-image" src="{{ product.image.url }}" alt="{{ product.display_name }}">
+                {% endif %}
+                {% if field.errors %}
+                    <div class="field-errors">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="field-group">
+            <div class="field-label-row">
+                <label for="id_alternative_name_0">Alternative name</label>
+                <button class="alias-action-button" id="add-alternative-name" type="button" aria-label="Add alternative name">+</button>
+            </div>
+            <div class="alias-list" id="alternative-name-list">
+                {% for alternative_name in alternative_name_values %}
+                    <div class="alias-row">
+                        <input
+                            id="id_alternative_name_{{ forloop.counter0 }}"
+                            type="text"
+                            name="alternative_names[]"
+                            value="{{ alternative_name }}"
+                            placeholder="Enter alternative name"
+                        >
+                        <button class="alias-action-button alias-remove-button" type="button" aria-label="Remove alternative name">−</button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="primary-button" type="submit">{{ submit_label }}</button>
+            <a class="secondary-button" href="{% url 'inventory:manage_products' %}">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<template id="alternative-name-template">
+    <div class="alias-row">
+        <input type="text" name="alternative_names[]" placeholder="Enter alternative name">
+        <button class="alias-action-button alias-remove-button" type="button" aria-label="Remove alternative name">−</button>
+    </div>
+</template>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const packTypeField = document.getElementById("id_pack_type");
+        const customPackTypeGroup = document.getElementById("custom-pack-type-group");
+        const customPackTypeField = document.getElementById("id_custom_pack_type");
+        const alternativeNameList = document.getElementById("alternative-name-list");
+        const addAlternativeNameButton = document.getElementById("add-alternative-name");
+        const alternativeNameTemplate = document.getElementById("alternative-name-template");
+
+        if (!packTypeField || !customPackTypeGroup || !customPackTypeField || !alternativeNameList || !addAlternativeNameButton || !alternativeNameTemplate) {
+            return;
+        }
+
+        const toggleCustomPackTypeField = () => {
+            const showCustomPackType = packTypeField.value === "other";
+            customPackTypeGroup.classList.toggle("is-hidden", !showCustomPackType);
+            customPackTypeField.disabled = !showCustomPackType;
+        };
+
+        const updateAlternativeNameRows = () => {
+            const aliasRows = alternativeNameList.querySelectorAll(".alias-row");
+
+            aliasRows.forEach((row, index) => {
+                const input = row.querySelector("input[name='alternative_names[]']");
+                const removeButton = row.querySelector(".alias-remove-button");
+
+                if (input) {
+                    input.id = "id_alternative_name_" + index;
+                }
+
+                if (removeButton) {
+                    removeButton.classList.toggle("is-hidden", index === 0);
+                }
+            });
+        };
+
+        addAlternativeNameButton.addEventListener("click", function () {
+            const newAliasRow = alternativeNameTemplate.content.firstElementChild.cloneNode(true);
+            alternativeNameList.appendChild(newAliasRow);
+            updateAlternativeNameRows();
+            const input = newAliasRow.querySelector("input[name='alternative_names[]']");
+            if (input) {
+                input.focus();
+            }
+        });
+
+        alternativeNameList.addEventListener("click", function (event) {
+            const removeButton = event.target.closest(".alias-remove-button");
+            if (!removeButton) {
+                return;
+            }
+
+            const aliasRows = alternativeNameList.querySelectorAll(".alias-row");
+            if (aliasRows.length <= 1) {
+                return;
+            }
+
+            removeButton.closest(".alias-row").remove();
+            updateAlternativeNameRows();
+        });
+
+        toggleCustomPackTypeField();
+        updateAlternativeNameRows();
+        packTypeField.addEventListener("change", toggleCustomPackTypeField);
+    });
+</script>
+{% endblock %}

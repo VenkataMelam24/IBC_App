@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ page_title }} | IBC{% endblock %}</title>
+    <style>
+        :root {
+            --bg: #f6efe9;
+            --panel: rgba(255, 255, 255, 0.92);
+            --surface: rgba(255, 255, 255, 0.96);
+            --ink: #231116;
+            --muted: #6f5961;
+            --border: rgba(95, 16, 38, 0.12);
+            --brand: #5f1026;
+            --brand-dark: #4b0b1d;
+            --brand-soft: #f4dde3;
+            --saffron: #d97706;
+            --success: #166534;
+            --danger: #b42318;
+            --shadow: 0 28px 70px rgba(95, 16, 38, 0.16);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(217, 119, 6, 0.14), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(95, 16, 38, 0.12), transparent 38%),
+                linear-gradient(135deg, #fdf8f3 0%, #f7ede6 48%, #f6f0eb 100%);
+        }
+
+        a {
+            color: var(--brand);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--brand-dark);
+        }
+
+        .auth-page {
+            min-height: 100vh;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-shell {
+            width: min(480px, 100%);
+        }
+
+        .panel-card {
+            padding: 34px 32px 30px;
+            border-radius: 28px;
+            border: 1px solid rgba(95, 16, 38, 0.1);
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+        }
+
+        .panel-eyebrow {
+            margin: 0 0 12px;
+            color: var(--saffron);
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-family: "Georgia", "Times New Roman", serif;
+            font-size: clamp(2rem, 4vw, 2.6rem);
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+        }
+
+        .panel-subtitle {
+            margin: 14px 0 0;
+            color: var(--muted);
+            font-size: 0.96rem;
+            line-height: 1.6;
+        }
+
+        .auth-helper {
+            margin: 18px 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+
+        .messages {
+            display: grid;
+            gap: 10px;
+            margin: 20px 0 0;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--ink);
+            font-size: 0.93rem;
+            line-height: 1.5;
+        }
+
+        .message.error {
+            border-color: rgba(180, 35, 24, 0.18);
+            background: #fff4f3;
+            color: var(--danger);
+        }
+
+        .message.success {
+            border-color: rgba(22, 101, 52, 0.18);
+            background: #f0fdf4;
+            color: var(--success);
+        }
+
+        .auth-form {
+            margin-top: 24px;
+            display: grid;
+            gap: 18px;
+        }
+
+        .field-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        .field-label {
+            font-size: 0.93rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 14px 15px;
+            border: 1px solid rgba(95, 16, 38, 0.15);
+            border-radius: 14px;
+            background: var(--surface);
+            color: var(--ink);
+            font-size: 1rem;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: rgba(95, 16, 38, 0.44);
+            box-shadow: 0 0 0 4px rgba(95, 16, 38, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .field-help {
+            color: var(--muted);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .field-errors {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: grid;
+            gap: 4px;
+            color: var(--danger);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .form-errors {
+            margin: 0;
+            padding: 14px 16px;
+            border-radius: 16px;
+            list-style: none;
+            background: #fff4f3;
+            border: 1px solid rgba(180, 35, 24, 0.18);
+            color: var(--danger);
+            display: grid;
+            gap: 6px;
+            font-size: 0.92rem;
+        }
+
+        .auth-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 4px;
+        }
+
+        .auth-button,
+        .auth-button-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 0 18px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            font-size: 0.95rem;
+            font-weight: 700;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+            cursor: pointer;
+        }
+
+        .auth-button {
+            background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+            color: #ffffff;
+            box-shadow: 0 16px 28px rgba(95, 16, 38, 0.18);
+        }
+
+        .auth-button:hover,
+        .auth-button:focus-visible {
+            transform: translateY(-1px);
+            background: linear-gradient(135deg, #6d1630, #531022);
+            color: #ffffff;
+        }
+
+        .auth-button-secondary {
+            background: var(--brand-soft);
+            border-color: rgba(95, 16, 38, 0.12);
+            color: var(--brand);
+        }
+
+        .auth-button-secondary:hover,
+        .auth-button-secondary:focus-visible {
+            transform: translateY(-1px);
+            background: #eed2da;
+            color: var(--brand-dark);
+        }
+
+        .auth-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            margin-top: 20px;
+            color: var(--muted);
+            font-size: 0.91rem;
+        }
+
+        .auth-meta a {
+            font-weight: 700;
+        }
+
+        @media (max-width: 560px) {
+            .auth-page {
+                padding: 18px;
+            }
+
+            .panel-card {
+                padding: 26px 22px 24px;
+                border-radius: 24px;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-shell">
+            <section class="panel-card">
+                <p class="panel-eyebrow">{% block panel_eyebrow %}IBC Auth{% endblock %}</p>
+                <h1 class="panel-title">{{ page_title }}</h1>
+                {% if page_subtitle %}
+                    <p class="panel-subtitle">{{ page_subtitle }}</p>
+                {% endif %}
+
+                {% if messages %}
+                    <div class="messages">
+                        {% for message in messages %}
+                            <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% block auth_panel %}{% endblock %}
+            </section>
+        </div>
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

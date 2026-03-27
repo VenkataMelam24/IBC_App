@@ -1,0 +1,70 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Master Inventory{% endblock %}
+{% block nav_master_inventory %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 8px 0 0;
+        color: #6b7280;
+    }
+
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+    }
+
+    .module-card {
+        display: block;
+        padding: 22px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+        color: #111827;
+        text-decoration: none;
+    }
+
+    .module-card h2 {
+        margin: 0 0 10px;
+        font-size: 1.2rem;
+    }
+
+    .module-card p {
+        margin: 0;
+        color: #6b7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Master Inventory</h1>
+    <p class="page-subtitle">Manage the core inventory data inside the dashboard.</p>
+</div>
+
+<div class="card-grid">
+    <a class="module-card" href="{% url 'inventory:manage_products' %}">
+        <h2>Products</h2>
+        <p>Create, edit, and remove product master records.</p>
+    </a>
+    <a class="module-card" href="{% url 'inventory:manage_vendors' %}">
+        <h2>Vendors</h2>
+        <p>Create, edit, and remove vendor records.</p>
+    </a>
+    <a class="module-card" href="{% url 'inventory:manage_vendor_prices' %}">
+        <h2>Vendor Prices</h2>
+        <p>Manage vendor-wise prices for each product.</p>
+    </a>
+</div>
+{% endblock %}

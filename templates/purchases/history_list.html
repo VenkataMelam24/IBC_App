@@ -1,0 +1,430 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}History{% endblock %}
+{% block nav_history %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        margin: 8px 0 0;
+        color: #6b7280;
+    }
+
+    .filter-card {
+        margin-bottom: 24px;
+        padding: 20px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .filter-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        align-items: end;
+    }
+
+    .filter-field label {
+        display: block;
+        margin-bottom: 6px;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .filter-field input,
+    .filter-field select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        font: inherit;
+    }
+
+    .filter-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .filter-button,
+    .clear-button,
+    .button-link {
+        display: inline-block;
+        padding: 10px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        text-decoration: none;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .filter-button,
+    .button-link {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .history-card {
+        padding: 20px;
+        border: 1px solid #dbe2ea;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .history-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .history-title {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #e5e7eb;
+        color: #111827;
+        font-size: 0.9rem;
+    }
+
+    .history-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px 18px;
+        margin-bottom: 18px;
+    }
+
+    .meta-label {
+        display: block;
+        margin-bottom: 4px;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    th {
+        background: #f8fafc;
+        white-space: nowrap;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    .history-footer {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .history-total {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .history-total-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .history-invoice-totals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 18px;
+        color: #374151;
+        font-size: 0.95rem;
+    }
+
+    .history-tax-breakdown {
+        margin: 0;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .history-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .history-note {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border: 1px solid #dbe2ea;
+        border-radius: 14px;
+        background: #f8fafc;
+    }
+
+    .history-note.manual {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .history-note.success {
+        border-color: #99f6e4;
+        background: #f0fdfa;
+        color: #115e59;
+    }
+
+    .history-summary-list,
+    .history-audit-list {
+        margin: 12px 0 0;
+        padding-left: 18px;
+    }
+
+    .history-summary-list li + li,
+    .history-audit-list li + li {
+        margin-top: 8px;
+    }
+
+    .empty-state {
+        padding: 24px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 16px;
+        background: #ffffff;
+        color: #6b7280;
+    }
+
+    @media (max-width: 720px) {
+        .page-header,
+        .history-header,
+        .history-footer {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">History</h1>
+        <p class="page-subtitle">Completed purchase orders and audit records are stored here.</p>
+    </div>
+</div>
+
+<section class="filter-card">
+    <form method="get" class="filter-form">
+        <div class="filter-field">
+            <label for="history-search">PO Number</label>
+            <input
+                id="history-search"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Search PO number"
+            >
+        </div>
+
+        <div class="filter-field">
+            <label for="history-vendor">Vendor</label>
+            <select id="history-vendor" name="vendor">
+                <option value="">All vendors</option>
+                {% for vendor in history_vendors %}
+                    <option value="{{ vendor.vendor_id }}" {% if selected_vendor_id == vendor.vendor_id|stringformat:"s" %}selected{% endif %}>
+                        {{ vendor.vendor__name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="history-date-from">Date From</label>
+            <input id="history-date-from" type="date" name="date_from" value="{{ date_from }}">
+        </div>
+
+        <div class="filter-field">
+            <label for="history-date-to">Date To</label>
+            <input id="history-date-to" type="date" name="date_to" value="{{ date_to }}">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Apply</button>
+            <a href="{% url 'purchases:history_list' %}" class="clear-button">Clear</a>
+        </div>
+    </form>
+</section>
+
+{% if purchase_orders %}
+    <div class="history-list">
+        {% for po in purchase_orders %}
+            <section class="history-card">
+                <div class="history-header">
+                    <div>
+                        <h2 class="history-title">{{ po.po_number }}</h2>
+                    </div>
+                    <span class="status-pill">{{ po.get_status_display }}</span>
+                </div>
+
+                <div class="history-meta">
+                    <div>
+                        <span class="meta-label">Vendor</span>
+                        <strong>{{ po.vendor.name }}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Created By</span>
+                        <strong>{{ po.created_by }}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Created Date</span>
+                        <strong>{{ po.created_at|date:"M d, Y H:i" }}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Closed Date</span>
+                        <strong>{% if po.closed_at %}{{ po.closed_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Validated Date</span>
+                        <strong>{% if po.validated_at %}{{ po.validated_at|date:"M d, Y H:i" }}{% else %}-{% endif %}</strong>
+                    </div>
+                    <div>
+                        <span class="meta-label">Invoice</span>
+                        <strong>
+                            {% if po.invoice_file %}
+                                Uploaded
+                            {% else %}
+                                Not uploaded
+                            {% endif %}
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in po.items.all %}
+                                <tr>
+                                    <td>{{ item.product.display_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.unit_price }}</td>
+                                    <td>{{ item.line_total }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="history-footer">
+                    <div class="history-total-stack">
+                        <p class="history-total">Total: {{ po.display_total_amount }}</p>
+                        {% if po.history_net_total or po.history_tax_total or po.history_grand_total %}
+                            <div class="history-invoice-totals">
+                                {% if po.history_net_total %}
+                                    <span>Net Total: {{ po.history_net_total }}</span>
+                                {% endif %}
+                                {% if po.history_tax_total %}
+                                    <span>Tax: {{ po.history_tax_total }}</span>
+                                {% endif %}
+                                {% if po.history_grand_total %}
+                                    <span>Grand Total: {{ po.history_grand_total }}</span>
+                                {% endif %}
+                            </div>
+                            {% if po.history_tax_breakdown_items %}
+                                <p class="history-tax-breakdown">
+                                    Tax breakdown:
+                                    {% for rate_label, amount in po.history_tax_breakdown_items %}
+                                        {{ rate_label }}: {{ amount }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <div class="history-actions">
+                        <a class="button-link" href="{% url 'purchases:download_po_pdf' po.id %}">Download PDF</a>
+                        {% if po.invoice_file %}
+                            <a class="clear-button" href="{{ po.invoice_file.url }}" target="_blank" rel="noopener">View Invoice</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if po.validation_note %}
+                    <div class="history-note {% if po.has_manual_mismatch_note %}manual{% elif po.validation_note == 'Validated successfully' %}success{% endif %}">
+                        {{ po.validation_note }}
+                        {% if po.reconciliation_summary %}
+                            <ul class="history-summary-list">
+                                {% for note in po.reconciliation_summary %}
+                                    <li>{{ note }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+                {% elif po.reconciliation_summary %}
+                    <div class="history-note">
+                        <ul class="history-summary-list">
+                            {% for note in po.reconciliation_summary %}
+                                <li>{{ note }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </section>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state">
+        <p>No purchase history available</p>
+    </div>
+{% endif %}
+{% endblock %}

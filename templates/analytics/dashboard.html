@@ -1,0 +1,1538 @@
+{% extends "base_dashboard.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+{% block nav_analytics %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-page {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .page-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .page-header-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .page-header-copy {
+        flex: 1 1 260px;
+    }
+
+    .page-title {
+        margin: 0;
+        font-size: 2rem;
+        color: #111827;
+    }
+
+    .page-subtitle {
+        margin: 0;
+        color: #6b7280;
+        font-size: 0.98rem;
+    }
+
+    .filter-bar {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid #dbe2ea;
+        border-radius: 14px;
+        background: #ffffff;
+    }
+
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        padding: 7px 11px;
+        border: 1px solid #dbe2ea;
+        border-radius: 999px;
+        background: #f8fafc;
+        color: #111827 !important;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.88rem;
+        line-height: 1.2;
+    }
+
+    .filter-chip.active {
+        border-color: #7b1a38;
+        background: #7b1a38;
+        color: #ffffff !important;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .kpi-card,
+    .chart-card,
+    .table-card {
+        border: 1px solid #dbe2ea;
+        border-radius: 18px;
+        background: #ffffff;
+    }
+
+    .kpi-card {
+        padding: 20px;
+    }
+
+    .kpi-card-wide {
+        grid-column: span 2;
+    }
+
+    .kpi-label {
+        margin: 0 0 10px;
+        color: #6b7280;
+        font-size: 0.92rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .kpi-value {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .kpi-details {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid #eef2f7;
+    }
+
+    .kpi-detail-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.92rem;
+    }
+
+    .kpi-detail-divider {
+        color: #cbd5e1;
+        font-weight: 700;
+    }
+
+    .kpi-detail-label {
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+    .kpi-detail-value {
+        color: #111827;
+        font-weight: 700;
+    }
+
+    .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .chart-card {
+        padding: 18px;
+    }
+
+    .chart-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .chart-title {
+        margin: 0;
+        font-size: 1.05rem;
+        color: #111827;
+    }
+
+    .chart-subtitle {
+        margin: 6px 0 0;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .chart-wrap {
+        position: relative;
+        height: 320px;
+    }
+
+    .analytics-chart-tooltip {
+        position: absolute;
+        z-index: 20;
+        pointer-events: none;
+        min-width: 190px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(17, 24, 39, 0.96);
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.28);
+        color: #ffffff;
+        opacity: 0;
+        transform: translate(-50%, calc(-100% - 14px));
+        transition: opacity 0.12s ease;
+    }
+
+    .analytics-chart-tooltip-title {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.35;
+        color: #ffffff;
+    }
+
+    .analytics-chart-tooltip-line {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.55;
+        font-weight: 400;
+        color: #ffffff;
+    }
+
+    .analytics-chart-tooltip-line--net {
+        margin-top: 4px;
+        font-weight: 700;
+    }
+
+    .analytics-chart-tooltip-line--savings {
+        color: #22c55e;
+    }
+
+    .analytics-chart-tooltip-line--spend {
+        color: #ef4444;
+    }
+
+    .analytics-chart-tooltip-line--share {
+        margin-top: 4px;
+        color: #cccccc;
+    }
+
+    .toggle-group {
+        display: inline-flex;
+        gap: 8px;
+        padding: 4px;
+        border-radius: 999px;
+        background: #f3f4f6;
+    }
+
+    .chart-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .select-pill-control {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        border: 1px solid #d8b7c2;
+        background: #f7e8ed;
+        box-shadow: inset 0 0 0 1px rgba(123, 26, 56, 0.03);
+    }
+
+    .select-pill-control::after {
+        content: "▾";
+        color: #7b1a38;
+        font-size: 0.78rem;
+        font-weight: 700;
+        pointer-events: none;
+    }
+
+    .pill-select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        border: 0;
+        background: transparent;
+        color: #7b1a38;
+        font-size: 0.88rem;
+        font-weight: 700;
+        padding-right: 18px;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .toggle-button {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: transparent;
+        color: #374151;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .toggle-button.active {
+        background: #7b1a38;
+        color: #ffffff;
+    }
+
+    .table-card {
+        overflow: hidden;
+    }
+
+    .trend-card {
+        padding: 18px;
+    }
+
+    .trend-card .chart-wrap {
+        height: 360px;
+    }
+
+    .empty-state-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 220px;
+        padding: 20px;
+        border: 1px dashed #dbe2ea;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: #6b7280;
+        text-align: center;
+        font-size: 0.98rem;
+    }
+
+    .chart-loading-note {
+        margin: 10px 0 0;
+        font-size: 0.88rem;
+        color: #6b7280;
+        text-align: right;
+    }
+
+    .table-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 20px;
+        border-bottom: 1px solid #dbe2ea;
+    }
+
+    .table-title {
+        margin: 0;
+        font-size: 1.05rem;
+        color: #111827;
+    }
+
+    .table-subtitle {
+        margin: 6px 0 0;
+        color: #6b7280;
+        font-size: 0.9rem;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .analytics-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .analytics-table th,
+    .analytics-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #eef2f7;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .analytics-table th {
+        background: #f8fafc;
+        color: #4b5563;
+        font-size: 0.84rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .analytics-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .drilldown-row {
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .drilldown-row:hover,
+    .drilldown-row:focus {
+        background: #f8fafc;
+        outline: none;
+    }
+
+    .direction-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+
+    .direction-up {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .direction-down {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .empty-state {
+        padding: 32px 20px;
+        text-align: center;
+        color: #6b7280;
+    }
+
+    @media (max-width: 1100px) {
+        .kpi-grid,
+        .chart-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .kpi-card-wide {
+            grid-column: span 2;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .kpi-grid,
+        .chart-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .kpi-card-wide {
+            grid-column: span 1;
+        }
+
+        .page-header-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .filter-bar {
+            justify-content: flex-start;
+        }
+
+        .chart-header,
+        .table-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .chart-controls {
+            width: 100%;
+        }
+
+        .filter-chip {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-page">
+    <section class="page-header">
+        <div class="page-header-row">
+            <div class="page-header-copy">
+                <h1 class="page-title">Analytics Dashboard</h1>
+            </div>
+            <div class="filter-bar">
+                {% for option in period_options %}
+                    <a
+                        href="{{ option.href }}"
+                        data-period-filter-link
+                        class="filter-chip{% if option.is_active %} active{% endif %}"
+                    >
+                        {{ option.label }}
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+        <p class="page-subtitle">Operational reporting built from analytics facts and final accepted procurement outcomes.</p>
+    </section>
+
+    <section class="kpi-grid">
+        <article class="kpi-card kpi-card-wide">
+            <p class="kpi-label">Total Spend</p>
+            <p class="kpi-value">{{ kpi_total_spend }}</p>
+            <div class="kpi-details">
+                <div class="kpi-detail-row">
+                    <span class="kpi-detail-label">Product:</span>
+                    <span class="kpi-detail-value">{{ kpi_total_spend_net }}</span>
+                </div>
+                <span class="kpi-detail-divider">|</span>
+                <div class="kpi-detail-row">
+                    <span class="kpi-detail-label">Tax:</span>
+                    <span class="kpi-detail-value">{{ kpi_total_spend_tax }}</span>
+                </div>
+            </div>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Average PO Value</p>
+            <p class="kpi-value">{{ kpi_average_po_value }}</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Total Products</p>
+            <p class="kpi-value">{{ kpi_total_products }}</p>
+        </article>
+        <article class="kpi-card">
+            <p class="kpi-label">Total POs</p>
+            <p class="kpi-value">{{ kpi_total_pos }}</p>
+        </article>
+    </section>
+
+    <section class="chart-grid">
+        <article class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <h2 class="chart-title">Vendor-wise Spend</h2>
+                    <p class="chart-subtitle">Final accepted spend grouped by vendor.</p>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="vendorSpendChart"></canvas>
+            </div>
+        </article>
+
+        <article class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <h2 class="chart-title">Orders per Vendor</h2>
+                    <p class="chart-subtitle">Purchase order count grouped by vendor.</p>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="vendorFrequencyChart"></canvas>
+            </div>
+        </article>
+
+        <article class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <h2 class="chart-title">Top Products</h2>
+                </div>
+                <div class="chart-controls">
+                    <label class="select-pill-control">
+                        <select class="pill-select" data-top-products-limit>
+                            <option value="5" selected>Top 5</option>
+                            <option value="10">Top 10</option>
+                            <option value="15">Top 15</option>
+                            <option value="20">Top 20</option>
+                        </select>
+                    </label>
+                    <div class="toggle-group" data-top-products-toggle>
+                        <button type="button" class="toggle-button active" data-metric="quantity">Quantity</button>
+                        <button type="button" class="toggle-button" data-metric="value">Value</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="topProductsChart"></canvas>
+            </div>
+        </article>
+
+        <article class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <h2 class="chart-title">Price Change Movement by Vendor (€)</h2>
+                    <p class="chart-subtitle">Share of accepted price-change movement by vendor. Tooltip shows net impact.</p>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="vendorPriceIncreaseChart"></canvas>
+            </div>
+        </article>
+    </section>
+
+    <section class="chart-card trend-card">
+        <div class="chart-header">
+            <div>
+                <h2 class="chart-title">Product Price Trend</h2>
+                <p class="chart-subtitle">Full price history over time for the selected product across vendors.</p>
+            </div>
+            <form method="get" class="chart-controls" data-price-trend-form data-price-trend-endpoint-url="{% url 'analytics:product_price_trend_data' %}">
+                <input type="hidden" name="period" value="{{ selected_period }}">
+                <label class="select-pill-control">
+                    <select name="trend_product" class="pill-select" data-price-trend-product-select {% if not price_trend_product_options %}disabled{% endif %}>
+                        {% if price_trend_product_options %}
+                            {% for option in price_trend_product_options %}
+                                <option value="{{ option.product_id }}" {% if option.product_id == selected_trend_product_id %}selected{% endif %}>{{ option.product_name }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="">No products with price history</option>
+                        {% endif %}
+                    </select>
+                </label>
+            </form>
+        </div>
+        <div class="chart-wrap" data-product-price-trend-chart-wrap {% if not product_price_trend_has_data %}hidden{% endif %}>
+            <canvas id="productPriceTrendChart"></canvas>
+        </div>
+        <div class="empty-state-panel" data-product-price-trend-empty-state {% if product_price_trend_has_data %}hidden{% endif %}>{{ product_price_trend_empty_message }}</div>
+        <p class="chart-loading-note" data-product-price-trend-loading hidden>Updating chart...</p>
+    </section>
+</div>
+
+{{ vendor_spend_chart|json_script:"vendor-spend-chart-data" }}
+{{ vendor_frequency_chart|json_script:"vendor-frequency-chart-data" }}
+{{ top_products_chart|json_script:"top-products-chart-data" }}
+{{ vendor_price_change_chart|json_script:"vendor-price-change-chart-data" }}
+{{ product_price_trend_chart|json_script:"product-price-trend-chart-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+<script>
+    if (window.ChartDataLabels) {
+        Chart.register(window.ChartDataLabels);
+    }
+
+    function readJsonScript(id) {
+        const node = document.getElementById(id);
+        return node ? JSON.parse(node.textContent) : {
+            labels: [],
+            values: [],
+            ids: [],
+            increase_counts: [],
+            decrease_counts: [],
+            net_impacts: [],
+            shares: [],
+            product_id: null,
+            product_name: "",
+            datasets: []
+        };
+    }
+
+    function formatCompactBarValue(value) {
+        const numericValue = Number(value || 0);
+        const absoluteValue = Math.abs(numericValue);
+        if (absoluteValue < 1000) {
+            return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
+        }
+
+        const scaledValue = numericValue / 1000;
+        const roundedValue = Math.round(scaledValue * 100) / 100;
+        if (Number.isInteger(roundedValue)) {
+            return `${roundedValue.toFixed(0)}K`;
+        }
+        if (Number.isInteger(roundedValue * 10)) {
+            return `${roundedValue.toFixed(1)}K`;
+        }
+        return `${roundedValue.toFixed(2)}K`;
+    }
+
+    function formatEuroAmount(value) {
+        return `€ ${Number(value || 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
+    }
+
+    function getOrCreateChartTooltip(chart, tooltipId) {
+        let tooltipElement = chart.canvas.parentNode.querySelector(`[data-chart-tooltip="${tooltipId}"]`);
+        if (!tooltipElement) {
+            tooltipElement = document.createElement("div");
+            tooltipElement.className = "analytics-chart-tooltip";
+            tooltipElement.dataset.chartTooltip = tooltipId;
+            chart.canvas.parentNode.appendChild(tooltipElement);
+        }
+        return tooltipElement;
+    }
+
+    function formatVendorPriceChangeNetImpactLine(value) {
+        const numericValue = Number(value || 0);
+        if (numericValue > 0) {
+            return {
+                text: `${formatEuroAmount(Math.abs(numericValue))} extra spend`,
+                className: "analytics-chart-tooltip-line--spend",
+            };
+        }
+        if (numericValue < 0) {
+            return {
+                text: `${formatEuroAmount(Math.abs(numericValue))} savings`,
+                className: "analytics-chart-tooltip-line--savings",
+            };
+        }
+        return {
+            text: "No impact",
+            className: "",
+        };
+    }
+
+    function createVendorPriceChangeTooltipRenderer(chartData) {
+        return ({ chart, tooltip }) => {
+            const tooltipElement = getOrCreateChartTooltip(chart, "vendor-price-change");
+            if (!tooltip || tooltip.opacity === 0 || !tooltip.dataPoints || !tooltip.dataPoints.length) {
+                tooltipElement.style.opacity = 0;
+                return;
+            }
+
+            const dataPoint = tooltip.dataPoints[0];
+            const index = dataPoint.dataIndex;
+            const vendorName = chartData.labels[index] || "";
+            const increaseCount = Number(chartData.increase_counts[index] || 0);
+            const decreaseCount = Number(chartData.decrease_counts[index] || 0);
+            const netImpact = Number(chartData.net_impacts[index] || 0);
+            const movementShare = Number(chartData.shares[index] || 0);
+            const netImpactLine = formatVendorPriceChangeNetImpactLine(netImpact);
+
+            tooltipElement.innerHTML = `
+                <p class="analytics-chart-tooltip-title">${vendorName}</p>
+                <p class="analytics-chart-tooltip-line">${increaseCount} increase${increaseCount === 1 ? "" : "s"}</p>
+                <p class="analytics-chart-tooltip-line">${decreaseCount} decrease${decreaseCount === 1 ? "" : "s"}</p>
+                <p class="analytics-chart-tooltip-line analytics-chart-tooltip-line--net ${netImpactLine.className}">${netImpactLine.text}</p>
+                <p class="analytics-chart-tooltip-line analytics-chart-tooltip-line--share">${formatPercentShare(movementShare)} movement share</p>
+            `;
+
+            const canvasRect = chart.canvas.getBoundingClientRect();
+            const parentRect = chart.canvas.parentNode.getBoundingClientRect();
+            const left = canvasRect.left - parentRect.left + window.pageXOffset + tooltip.caretX;
+            const top = canvasRect.top - parentRect.top + window.pageYOffset + tooltip.caretY;
+
+            tooltipElement.style.left = `${left}px`;
+            tooltipElement.style.top = `${top}px`;
+            tooltipElement.style.opacity = 1;
+        };
+    }
+
+    function formatPercentShare(value) {
+        const numericValue = Number(value || 0);
+        return `${numericValue.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        })}%`;
+    }
+
+    function getMaxPositiveBarValue(context) {
+        const datasetValues = (context.dataset && context.dataset.data) || [];
+        const positiveValues = datasetValues
+            .map((value) => Number(value || 0))
+            .filter((value) => value > 0);
+        if (!positiveValues.length) {
+            return 0;
+        }
+        return Math.max(...positiveValues);
+    }
+
+    function shouldPlaceLabelAboveBar(context) {
+        const currentValue = Number(context.dataset.data[context.dataIndex] || 0);
+        const maxValue = getMaxPositiveBarValue(context);
+        if (currentValue <= 0 || maxValue <= 0) {
+            return false;
+        }
+        return currentValue / maxValue < 0.18;
+    }
+
+    function getSharedAxisTickFont(size = 11) {
+        return {
+            size,
+            weight: "700"
+        };
+    }
+
+    function getSharedYAxisScaleConfig(values) {
+        const positiveValues = (values || [])
+            .map((value) => Number(value || 0))
+            .filter((value) => value > 0);
+        if (!positiveValues.length) {
+            return {
+                beginAtZero: true,
+                ticks: {
+                    font: getSharedAxisTickFont(),
+                    precision: 0,
+                    callback: (value) => Number(value).toLocaleString(undefined, {
+                        maximumFractionDigits: 0
+                    })
+                },
+                grid: {
+                    color: "#eef2f7"
+                }
+            };
+        }
+
+        const maxValue = Math.max(...positiveValues);
+        const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue)));
+        const normalizedMax = maxValue / magnitude;
+        const roundedSteps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+        const roundedNormalizedMax = roundedSteps.find((step) => normalizedMax <= step) || 10;
+        const roundedMax = roundedNormalizedMax * magnitude;
+        const stepSize = Math.max(1, Math.ceil(roundedMax / 5));
+        const axisMax = stepSize * 5;
+
+        return {
+            beginAtZero: true,
+            max: axisMax,
+            ticks: {
+                font: getSharedAxisTickFont(),
+                precision: 0,
+                stepSize: stepSize,
+                callback: (value) => Number(value).toLocaleString(undefined, {
+                    maximumFractionDigits: 0
+                })
+            },
+            grid: {
+                color: "#eef2f7"
+            }
+        };
+    }
+
+    function getPriceTrendValueAxisConfig(values) {
+        const numericValues = (values || [])
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value));
+
+        if (!numericValues.length) {
+            return {
+                type: "linear",
+                ticks: {
+                    font: getSharedAxisTickFont(),
+                    callback: (value) => formatEuroAmount(value),
+                },
+                grid: {
+                    color: "#eef2f7",
+                },
+            };
+        }
+
+        const minValue = Math.min(...numericValues);
+        const maxValue = Math.max(...numericValues);
+
+        return {
+            type: "linear",
+            min: minValue,
+            max: maxValue,
+            ticks: {
+                font: getSharedAxisTickFont(),
+                maxTicksLimit: 6,
+                callback: (value) => formatEuroAmount(value),
+            },
+            grid: {
+                color: "#eef2f7",
+            },
+        };
+    }
+
+    function getRawCategoryLabel(label) {
+        if (Array.isArray(label)) {
+            return label.join(" ");
+        }
+        return String(label || "").trim();
+    }
+
+    function truncateLabelWithEllipsis(text, maxChars) {
+        const rawText = String(text || "").trim();
+        if (!rawText || rawText.length <= maxChars) {
+            return rawText;
+        }
+
+        const words = rawText.split(/\s+/).filter(Boolean);
+        let fitted = "";
+        for (const word of words) {
+            const candidate = fitted ? `${fitted} ${word}` : word;
+            if (candidate.length <= Math.max(1, maxChars - 3)) {
+                fitted = candidate;
+                continue;
+            }
+            break;
+        }
+
+        if (fitted) {
+            return `${fitted}...`;
+        }
+        return `${rawText.slice(0, Math.max(1, maxChars - 3)).trimEnd()}...`;
+    }
+
+    function getAdaptiveCategoryLabelLayout(labels) {
+        const categoryCount = (labels || []).length;
+        if (categoryCount <= 5) {
+            return { maxCharsPerLine: 16, maxLines: 3, fontSize: 10, rotation: 0, padding: 10 };
+        }
+        if (categoryCount <= 10) {
+            return { maxCharsPerLine: 11, maxLines: 3, fontSize: 9, rotation: 0, padding: 11 };
+        }
+        if (categoryCount <= 15) {
+            return { maxCharsPerLine: 9, maxLines: 3, fontSize: 8, rotation: 0, padding: 12 };
+        }
+        return { maxCharsPerLine: 7, maxLines: 3, fontSize: 8, rotation: 12, padding: 14 };
+    }
+
+    function buildBalancedCategoryLines(text, layout) {
+        const rawText = getRawCategoryLabel(text);
+        if (!rawText) {
+            return [""];
+        }
+
+        const words = rawText.split(/\s+/).filter(Boolean);
+        if (words.length <= 1 && rawText.length <= layout.maxCharsPerLine) {
+            return [rawText];
+        }
+
+        const maxAllowedLines = Math.min(layout.maxLines, Math.max(1, words.length));
+        const preferredLines = Math.min(
+            maxAllowedLines,
+            Math.max(2, Math.ceil(rawText.length / layout.maxCharsPerLine))
+        );
+
+        function buildLinesWithBreaks(breakIndexes) {
+            const lines = [];
+            let startIndex = 0;
+            breakIndexes.forEach((endIndex) => {
+                lines.push(words.slice(startIndex, endIndex).join(" "));
+                startIndex = endIndex;
+            });
+            lines.push(words.slice(startIndex).join(" "));
+            return lines.filter(Boolean);
+        }
+
+        function evaluateLines(lines) {
+            const lengths = lines.map((line) => line.length);
+            const maxLength = Math.max(...lengths);
+            const minLength = Math.min(...lengths);
+            const overflowPenalty = lengths.reduce(
+                (total, length) => total + Math.max(0, length - layout.maxCharsPerLine) * 6,
+                0
+            );
+            return (
+                (maxLength - minLength) * 2 +
+                Math.abs(lines.length - preferredLines) * 4 +
+                overflowPenalty
+            );
+        }
+
+        let bestLines = [rawText];
+        let bestScore = Infinity;
+
+        function searchBreaks(startIndex, linesLeft, breakIndexes) {
+            if (linesLeft === 1) {
+                const lines = buildLinesWithBreaks(breakIndexes);
+                const score = evaluateLines(lines);
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestLines = lines;
+                }
+                return;
+            }
+
+            const maxBreakIndex = words.length - (linesLeft - 1);
+            for (let index = startIndex + 1; index <= maxBreakIndex; index += 1) {
+                searchBreaks(index, linesLeft - 1, [...breakIndexes, index]);
+            }
+        }
+
+        for (let lineCount = 2; lineCount <= maxAllowedLines; lineCount += 1) {
+            searchBreaks(0, lineCount, []);
+        }
+
+        return bestLines;
+    }
+
+    function formatAdaptiveCategoryLabel(label, layout) {
+        const balancedLines = buildBalancedCategoryLines(label, layout);
+        const normalizedLines = [];
+        const needsLineTruncation = balancedLines.length > layout.maxLines;
+        const visibleLineCount = Math.min(balancedLines.length, layout.maxLines);
+
+        for (let index = 0; index < visibleLineCount; index += 1) {
+            const isFinalVisibleLine = index === visibleLineCount - 1;
+            if (isFinalVisibleLine && needsLineTruncation) {
+                normalizedLines.push(
+                    truncateLabelWithEllipsis(
+                        balancedLines.slice(index).join(" "),
+                        layout.maxCharsPerLine
+                    )
+                );
+                break;
+            }
+
+            const currentLine = balancedLines[index];
+            if (currentLine.length > layout.maxCharsPerLine && isFinalVisibleLine) {
+                normalizedLines.push(truncateLabelWithEllipsis(currentLine, layout.maxCharsPerLine));
+            } else {
+                normalizedLines.push(currentLine);
+            }
+        }
+
+        return normalizedLines.length > 1 ? normalizedLines : normalizedLines[0];
+    }
+
+    function getCategoryTooltipTitle(items) {
+        const firstItem = items && items[0];
+        if (!firstItem) {
+            return "";
+        }
+        return getRawCategoryLabel(firstItem.label || firstItem.chart.data.labels[firstItem.dataIndex]);
+    }
+
+    function getAdaptiveCategoryAxisConfig(labels) {
+        const layout = getAdaptiveCategoryLabelLayout(labels);
+        return {
+            offset: true,
+            ticks: {
+                autoSkip: false,
+                minRotation: layout.rotation,
+                maxRotation: layout.rotation,
+                padding: layout.padding,
+                align: "center",
+                font: getSharedAxisTickFont(layout.fontSize),
+                callback: function formatCategoryTick(value) {
+                    return formatAdaptiveCategoryLabel(this.getLabelForValue(value), layout);
+                }
+            },
+            grid: {
+                display: false
+            }
+        };
+    }
+
+    function buildBarChart(canvasId, chartLabel, chartData, color, options = {}) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            return null;
+        }
+
+        const showDataLabels = Boolean(options.showDataLabels);
+        const cleanYAxis = options.cleanYAxis !== false;
+        const yAxisScaleConfig = cleanYAxis
+            ? getSharedYAxisScaleConfig(chartData.values)
+            : {
+                beginAtZero: true,
+                grid: {
+                    color: "#eef2f7"
+                }
+            };
+        const useAdaptiveCategoryLabels = options.useAdaptiveCategoryLabels !== false;
+        const tooltipCallbacks = options.tooltipCallbacks || {
+            title: getCategoryTooltipTitle
+        };
+        const datasetBackgroundColor = options.backgroundColor || color;
+        const defaultDataLabelsConfig = showDataLabels ? {
+            display: (context) => Number(context.dataset.data[context.dataIndex] || 0) > 0,
+            anchor: "end",
+            align: (context) => shouldPlaceLabelAboveBar(context) ? "top" : "start",
+            offset: (context) => shouldPlaceLabelAboveBar(context) ? 4 : 6,
+            color: (context) => shouldPlaceLabelAboveBar(context) ? "#4b5563" : "#ffffff",
+            clamp: true,
+            clip: false,
+            textAlign: "center",
+            font: {
+                size: 11,
+                weight: "700"
+            },
+            formatter: (value) => formatCompactBarValue(value)
+        } : {
+            display: false
+        };
+        const dataLabelsConfig = showDataLabels
+            ? {
+                ...defaultDataLabelsConfig,
+                ...(options.dataLabelConfig || {})
+            }
+            : defaultDataLabelsConfig;
+
+        return new Chart(canvas, {
+            type: "bar",
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: chartLabel,
+                        data: chartData.values,
+                        backgroundColor: datasetBackgroundColor,
+                        borderRadius: 10,
+                        maxBarThickness: 42
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: showDataLabels ? false : undefined,
+                transitions: showDataLabels ? {
+                    active: {
+                        animation: {
+                            duration: 0
+                        }
+                    },
+                    resize: {
+                        animation: {
+                            duration: 0
+                        }
+                    }
+                } : undefined,
+                layout: showDataLabels ? {
+                    padding: {
+                        top: 12
+                    }
+                } : undefined,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: tooltipCallbacks
+                    },
+                    datalabels: dataLabelsConfig
+                },
+                scales: {
+                    y: yAxisScaleConfig,
+                    x: {
+                        ...(useAdaptiveCategoryLabels
+                            ? getAdaptiveCategoryAxisConfig(chartData.labels)
+                            : {
+                                grid: {
+                                    display: false
+                                }
+                            })
+                    }
+                }
+            }
+        });
+    }
+
+    const vendorSpendData = readJsonScript("vendor-spend-chart-data");
+    const vendorFrequencyData = readJsonScript("vendor-frequency-chart-data");
+    const topProductsData = readJsonScript("top-products-chart-data");
+    const vendorPriceChangeData = readJsonScript("vendor-price-change-chart-data");
+    let productPriceTrendData = readJsonScript("product-price-trend-chart-data");
+
+    buildBarChart("vendorSpendChart", "Total Spend", vendorSpendData, "#7b1a38", {
+        showDataLabels: true,
+        cleanYAxis: true
+    });
+    const vendorFrequencyBarColors = vendorFrequencyData.values.map((_, index) => (
+        index === 0 ? "#7b1a38" : "#c77790"
+    ));
+    buildBarChart("vendorFrequencyChart", "Orders", vendorFrequencyData, "#b4536b", {
+        showDataLabels: true,
+        cleanYAxis: true,
+        backgroundColor: vendorFrequencyBarColors,
+        dataLabelConfig: {
+            anchor: "center",
+            align: "center",
+            offset: 0,
+            color: "#ffffff",
+            font: {
+                size: 12,
+                weight: "700"
+            },
+            formatter: (value) => Number(value || 0).toLocaleString(undefined, {
+                maximumFractionDigits: 0
+            })
+        }
+    });
+    const vendorPriceChangeChart = new Chart(document.getElementById("vendorPriceIncreaseChart"), {
+        type: "doughnut",
+        data: {
+            labels: vendorPriceChangeData.labels,
+            datasets: [
+                {
+                    label: "Movement (€)",
+                    data: vendorPriceChangeData.values,
+                    backgroundColor: ["#7b1a38", "#b4536b", "#c2410c", "#1d4ed8", "#15803d", "#7c3aed"],
+                    borderColor: "#ffffff",
+                    borderWidth: 2,
+                    hoverOffset: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "62%",
+            plugins: {
+                legend: {
+                    position: "bottom"
+                },
+                tooltip: {
+                    enabled: false,
+                    external: createVendorPriceChangeTooltipRenderer(vendorPriceChangeData),
+                },
+                datalabels: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    const topProductsCanvas = document.getElementById("topProductsChart");
+    const topProductsButtons = document.querySelectorAll("[data-top-products-toggle] .toggle-button");
+    const topProductsLimitSelect = document.querySelector("[data-top-products-limit]");
+    const topProductsLabelMap = {
+        quantity: "Accepted Quantity",
+        value: "Accepted Value"
+    };
+    const topProductsColorMap = {
+        quantity: "#8b1e3f",
+        value: "#c2410c"
+    };
+    const productTrendColors = ["#7b1a38", "#1d4ed8", "#15803d", "#c2410c", "#7c3aed", "#0f766e"];
+    let activeTopProductsMetric = "quantity";
+    let productPriceTrendChart = null;
+    let productPriceTrendRequestController = null;
+
+    function getTopProductsLimit() {
+        const selectedLimit = Number(topProductsLimitSelect ? topProductsLimitSelect.value : 5);
+        return Number.isFinite(selectedLimit) && selectedLimit > 0 ? selectedLimit : 5;
+    }
+
+    function getTopProductsChartSlice(metric) {
+        const chartData = topProductsData[metric];
+        if (!chartData) {
+            return { labels: [], values: [] };
+        }
+        const limit = getTopProductsLimit();
+        return {
+            labels: chartData.labels.slice(0, limit),
+            values: chartData.values.slice(0, limit)
+        };
+    }
+
+    function updateTopProductsChart(metric) {
+        const chartData = getTopProductsChartSlice(metric);
+        activeTopProductsMetric = metric;
+        topProductsChart.data.labels = chartData.labels;
+        topProductsChart.data.datasets[0].label = topProductsLabelMap[metric];
+        topProductsChart.data.datasets[0].data = chartData.values;
+        topProductsChart.data.datasets[0].backgroundColor = topProductsColorMap[metric];
+        topProductsChart.options.scales.y = getSharedYAxisScaleConfig(chartData.values);
+        topProductsChart.options.scales.x = getAdaptiveCategoryAxisConfig(chartData.labels);
+        topProductsChart.update();
+    }
+
+    const topProductsChart = new Chart(topProductsCanvas, {
+        type: "bar",
+        data: {
+            labels: getTopProductsChartSlice("quantity").labels,
+            datasets: [
+                {
+                    label: topProductsLabelMap.quantity,
+                    data: getTopProductsChartSlice("quantity").values,
+                    backgroundColor: topProductsColorMap.quantity,
+                    borderRadius: 10,
+                    maxBarThickness: 42
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: getCategoryTooltipTitle
+                    }
+                },
+                datalabels: {
+                    display: (context) => Number(context.dataset.data[context.dataIndex] || 0) > 0,
+                    anchor: "end",
+                    align: "start",
+                    offset: 6,
+                    clamp: true,
+                    clip: false,
+                    color: "#ffffff",
+                    textAlign: "center",
+                    font: {
+                        size: 11,
+                        weight: "700"
+                    },
+                    formatter: (value) => formatCompactBarValue(value)
+                }
+            },
+            scales: {
+                y: getSharedYAxisScaleConfig(getTopProductsChartSlice("quantity").values),
+                x: {
+                    ...getAdaptiveCategoryAxisConfig(getTopProductsChartSlice("quantity").labels)
+                }
+            }
+        }
+    });
+
+    topProductsButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const metric = button.getAttribute("data-metric");
+            if (!topProductsData[metric]) {
+                return;
+            }
+
+            topProductsButtons.forEach((otherButton) => {
+                otherButton.classList.toggle("active", otherButton === button);
+            });
+
+            updateTopProductsChart(metric);
+        });
+    });
+
+    if (topProductsLimitSelect) {
+        topProductsLimitSelect.addEventListener("change", () => {
+            updateTopProductsChart(activeTopProductsMetric);
+        });
+    }
+
+    const productPriceTrendSelect = document.querySelector("[data-price-trend-product-select]");
+    const productPriceTrendForm = document.querySelector("[data-price-trend-form]");
+    const productPriceTrendChartWrap = document.querySelector("[data-product-price-trend-chart-wrap]");
+    const productPriceTrendEmptyState = document.querySelector("[data-product-price-trend-empty-state]");
+    const productPriceTrendLoading = document.querySelector("[data-product-price-trend-loading]");
+    const periodFilterLinks = document.querySelectorAll("[data-period-filter-link]");
+
+    function buildCurrentDashboardUrl(searchParams) {
+        const queryString = searchParams.toString();
+        return `${window.location.pathname}${queryString ? `?${queryString}` : ""}`;
+    }
+
+    function updateTrendProductQueryParam(productId) {
+        const currentSearchParams = new URLSearchParams(window.location.search);
+        if (productId) {
+            currentSearchParams.set("trend_product", productId);
+        } else {
+            currentSearchParams.delete("trend_product");
+        }
+        window.history.replaceState({}, "", buildCurrentDashboardUrl(currentSearchParams));
+    }
+
+    function updatePeriodFilterLinks(productId) {
+        periodFilterLinks.forEach((link) => {
+            const linkUrl = new URL(link.getAttribute("href"), window.location.href);
+            if (productId) {
+                linkUrl.searchParams.set("trend_product", productId);
+            } else {
+                linkUrl.searchParams.delete("trend_product");
+            }
+            link.setAttribute("href", buildCurrentDashboardUrl(linkUrl.searchParams));
+        });
+    }
+
+    function setProductPriceTrendLoading(isLoading) {
+        if (productPriceTrendLoading) {
+            productPriceTrendLoading.hidden = !isLoading;
+        }
+    }
+
+    function getProductPriceTrendFetchUrl(productId) {
+        if (!productPriceTrendForm || !productPriceTrendForm.dataset.priceTrendEndpointUrl) {
+            return null;
+        }
+        const url = new URL(productPriceTrendForm.dataset.priceTrendEndpointUrl, window.location.origin);
+        if (productId) {
+            url.searchParams.set("trend_product", productId);
+        }
+        const periodInput = productPriceTrendForm.querySelector('input[name="period"]');
+        if (periodInput && periodInput.value) {
+            url.searchParams.set("period", periodInput.value);
+        }
+        return url;
+    }
+
+    const productPriceTrendCanvas = document.getElementById("productPriceTrendChart");
+    function buildProductPriceTrendChart(chartData) {
+        if (!productPriceTrendCanvas) {
+            return null;
+        }
+        const productPriceTrendValues = chartData.datasets.flatMap((dataset) => dataset.prices || []);
+
+        return new Chart(productPriceTrendCanvas, {
+            type: "line",
+            data: {
+                labels: chartData.labels,
+                datasets: chartData.datasets.map((dataset, index) => ({
+                    label: dataset.vendor_name,
+                    data: dataset.prices,
+                    vendorId: dataset.vendor_id,
+                    oldPrices: dataset.old_prices,
+                    newPrices: dataset.new_prices,
+                    borderColor: productTrendColors[index % productTrendColors.length],
+                    backgroundColor: productTrendColors[index % productTrendColors.length],
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 5,
+                    tension: 0.25,
+                    spanGaps: true,
+                })),
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: () => chartData.product_name || "Product Price Trend",
+                            beforeBody: (items) => {
+                                const firstItem = items && items[0];
+                                if (!firstItem) {
+                                    return [];
+                                }
+                                return [
+                                    `Vendor: ${firstItem.dataset.label}`,
+                                    `Date: ${firstItem.label || ""}`,
+                                ];
+                            },
+                            label: (context) => `Price: ${formatEuroAmount(typeof context.parsed.y === "number" ? context.parsed.y : 0)}`,
+                        },
+                    },
+                    datalabels: {
+                        display: false,
+                    },
+                },
+                scales: {
+                    x: {
+                        type: "category",
+                        grid: {
+                            display: false,
+                        },
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 6,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            font: getSharedAxisTickFont(),
+                        },
+                    },
+                    y: getPriceTrendValueAxisConfig(productPriceTrendValues),
+                },
+            },
+        });
+    }
+
+    function renderProductPriceTrendChart(chartData) {
+        if (!productPriceTrendCanvas) {
+            return;
+        }
+        if (productPriceTrendChart) {
+            productPriceTrendChart.destroy();
+        }
+        productPriceTrendChart = buildProductPriceTrendChart(chartData);
+    }
+
+    function applyProductPriceTrendPayload(payload) {
+        productPriceTrendData = payload.product_price_trend_chart || {
+            product_id: null,
+            product_name: "",
+            labels: [],
+            datasets: [],
+        };
+        const selectedProductId = payload.selected_trend_product_id ? String(payload.selected_trend_product_id) : "";
+        if (productPriceTrendSelect && selectedProductId) {
+            productPriceTrendSelect.value = selectedProductId;
+        }
+
+        if (payload.product_price_trend_has_data) {
+            if (productPriceTrendChartWrap) {
+                productPriceTrendChartWrap.hidden = false;
+            }
+            if (productPriceTrendEmptyState) {
+                productPriceTrendEmptyState.hidden = true;
+            }
+            renderProductPriceTrendChart(productPriceTrendData);
+        } else {
+            if (productPriceTrendChart) {
+                productPriceTrendChart.destroy();
+                productPriceTrendChart = null;
+            }
+            if (productPriceTrendChartWrap) {
+                productPriceTrendChartWrap.hidden = true;
+            }
+            if (productPriceTrendEmptyState) {
+                productPriceTrendEmptyState.hidden = false;
+                productPriceTrendEmptyState.textContent = payload.product_price_trend_empty_message || "No price history available for this product.";
+            }
+        }
+
+        updateTrendProductQueryParam(selectedProductId);
+        updatePeriodFilterLinks(selectedProductId);
+    }
+
+    async function fetchAndApplyProductPriceTrend(productId) {
+        const productPriceTrendUrl = getProductPriceTrendFetchUrl(productId);
+        if (!productPriceTrendUrl) {
+            return;
+        }
+
+        if (productPriceTrendRequestController) {
+            productPriceTrendRequestController.abort();
+        }
+
+        const controller = new AbortController();
+        productPriceTrendRequestController = controller;
+        setProductPriceTrendLoading(true);
+
+        try {
+            const response = await fetch(productPriceTrendUrl.toString(), {
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                throw new Error(`Trend request failed with status ${response.status}.`);
+            }
+            const payload = await response.json();
+            if (controller !== productPriceTrendRequestController) {
+                return;
+            }
+            applyProductPriceTrendPayload(payload);
+        } catch (error) {
+            if (error.name !== "AbortError") {
+                console.error("Failed to update product price trend.", error);
+            }
+        } finally {
+            if (controller === productPriceTrendRequestController) {
+                productPriceTrendRequestController = null;
+                setProductPriceTrendLoading(false);
+            }
+        }
+    }
+
+    if (productPriceTrendSelect) {
+        productPriceTrendSelect.addEventListener("change", () => {
+            fetchAndApplyProductPriceTrend(productPriceTrendSelect.value);
+        });
+    }
+
+    applyProductPriceTrendPayload({
+        selected_trend_product_id: productPriceTrendData.product_id,
+        product_price_trend_chart: productPriceTrendData,
+        product_price_trend_has_data: Array.isArray(productPriceTrendData.datasets) && productPriceTrendData.datasets.length > 0,
+        product_price_trend_empty_message: productPriceTrendEmptyState ? productPriceTrendEmptyState.textContent : "No price history available for this product.",
+    });
+</script>
+{% endblock %}
