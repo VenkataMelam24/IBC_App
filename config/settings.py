@@ -204,6 +204,7 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000          # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # OCR.space API (replaces Azure Document Intelligence)
 # Free tier: 500 req/day, 25k/month — get a free key at https://ocr.space/ocrapi
