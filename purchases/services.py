@@ -301,35 +301,47 @@ def _parse_line_items_from_text(raw_text):
         if len(number_spans) < 2:
             continue
 
-        decimal_values = []
+        # Build (decimal_value, span) pairs, keeping only positive values.
+        # Tracking spans alongside values lets us later find the exact position
+        # where product-name text ends and column data begins.
+        number_value_spans = []
         for span in number_spans:
             val = _to_decimal(span.group())
             if val is not None and val > 0:
-                decimal_values.append(val)
+                number_value_spans.append((val, span))
 
-        if len(decimal_values) < 2:
+        if len(number_value_spans) < 2:
             continue
 
-        # Product name: text before the first number; strip leading row-index prefix
-        first_num_start = number_spans[0].start()
-        name_part = line[:first_num_start].strip()
-        name_part = re.sub(r'^\s*#?\d+[\.\)\s:]+', '', name_part).strip()
-        name_part = name_part.strip('.-:,;').strip()
+        line_total = number_value_spans[-1][0]
+        unit_price = number_value_spans[-2][0]
 
-        if not name_part or len(name_part) < 2:
-            continue
-
-        line_total = decimal_values[-1]
-        unit_price = decimal_values[-2]
-
-        if len(decimal_values) >= 3:
-            qty_candidate = decimal_values[-3]
+        if len(number_value_spans) >= 3:
+            qty_candidate = number_value_spans[-3][0]
             if unit_price > 0:
                 # Accept candidate if qty * unit_price matches line_total within 2%
                 tolerance = max(qty_candidate * unit_price * Decimal("0.02"), Decimal("0.10"))
-                quantity = qty_candidate if abs(qty_candidate * unit_price - line_total) <= tolerance else Decimal("1")
+                if abs(qty_candidate * unit_price - line_total) <= tolerance:
+                    quantity = qty_candidate
+                    # Name ends just before the quantity column (3rd-from-last number).
+                    # This correctly keeps numbers that are part of the product name
+                    # (e.g. "joghurt 10% 5kg") because they appear before the qty column.
+                    name_end = number_value_spans[-3][1].start()
+                else:
+                    # 3rd-from-last isn't a standalone qty; treat as price + total only.
+                    if unit_price > 0 and line_total >= unit_price:
+                        qty_derived = _quantize_money(line_total / unit_price)
+                        quantity = (
+                            qty_derived
+                            if qty_derived == qty_derived.to_integral() and Decimal("1") <= qty_derived <= Decimal("9999")
+                            else Decimal("1")
+                        )
+                    else:
+                        quantity = Decimal("1")
+                    name_end = number_value_spans[-2][1].start()
             else:
                 quantity = Decimal("1")
+                name_end = number_value_spans[-2][1].start()
         else:
             if unit_price > 0 and line_total >= unit_price:
                 qty_derived = _quantize_money(line_total / unit_price)
@@ -340,6 +352,16 @@ def _parse_line_items_from_text(raw_text):
                 )
             else:
                 quantity = Decimal("1")
+            name_end = number_value_spans[-2][1].start()
+
+        # Product name: text up to the start of the numeric columns block.
+        # Strip any leading row-index prefix (e.g. "1.", "2)", "#3 ").
+        name_part = line[:name_end].strip()
+        name_part = re.sub(r'^\s*#?\d+[\.\)\s:]+', '', name_part).strip()
+        name_part = name_part.strip('.-:,;').strip()
+
+        if not name_part or len(name_part) < 2:
+            continue
 
         items.append({
             "name": name_part,

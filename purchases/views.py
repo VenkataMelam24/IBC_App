@@ -312,6 +312,8 @@ def manual_validate_po(request, po_id):
 
     manual_product_mappings = dict(stored_manual_product_mappings)
     alias_requests = []
+    # Gap 1: track which extra invoice items the user is disputing.
+    disputed_invoice_item_indexes = set()
 
     for extra_product in extra_products:
         invoice_item_index = extra_product.get("invoice_item_index")
@@ -322,11 +324,16 @@ def manual_validate_po(request, po_id):
             )
             return redirect("purchases:po_list")
 
+        # Gap 1: "Dispute this charge" takes precedence over mapping.
+        if request.POST.get(f"dispute_{invoice_item_index}") == "on":
+            disputed_invoice_item_indexes.add(invoice_item_index)
+            continue
+
         selected_product_raw = (request.POST.get(f"map_product_{invoice_item_index}") or "").strip()
         if not selected_product_raw.isdigit():
             messages.error(
                 request,
-                "Select a product for every unmatched invoice item before manually validating.",
+                "For each unmatched invoice item, either map it to a PO product or dispute the charge.",
             )
             return redirect("purchases:po_list")
 
@@ -347,10 +354,40 @@ def manual_validate_po(request, po_id):
             }
         )
 
+    # Gap 2: Save aliases EAGERLY — before entering the transaction — so they survive
+    # even if the PO closure later fails for any reason (e.g. a different validation
+    # error) or the user eventually uses "Close Only" as an escape hatch.
+    eager_alias_cache = {}
+    for alias_req in alias_requests:
+        if alias_req["save_alias"]:
+            po_item = po_items_by_product_id[alias_req["product_id"]]
+            invoice_item = invoice_items[alias_req["invoice_item_index"]]
+            invoice_item_name = clean_reconciliation_name(
+                invoice_item.get("name") or "Unrecognized invoice item"
+            )
+            maybe_create_manual_alias(po_item.product, invoice_item_name, eager_alias_cache)
+
+    # Build disputed item records for audit trail and history display.
+    # Note: invoice items store the line total as "amount" (from the parser),
+    # with "line_total" only present on extra_products entries.
+    disputed_items_data = []
+    for inv_idx in sorted(disputed_invoice_item_indexes):
+        inv_item = invoice_items[inv_idx]
+        disputed_items_data.append(
+            {
+                "invoice_item_index": inv_idx,
+                "product_name": clean_reconciliation_name(inv_item.get("name") or "Unknown item"),
+                "quantity": inv_item.get("quantity", "?"),
+                "unit_price": inv_item.get("unit_price", "?"),
+                "line_total": inv_item.get("line_total") or inv_item.get("amount", "?"),
+            }
+        )
+
     mapped_invoice_item_indexes = {
         item["invoice_item_index"]
         for item in extra_products
         if item.get("invoice_item_index") is not None
+        and item.get("invoice_item_index") not in disputed_invoice_item_indexes
     }
 
     with transaction.atomic():
@@ -363,11 +400,21 @@ def manual_validate_po(request, po_id):
             reconciled_result[metadata_key] = validation_data.get(metadata_key)
 
         if reconciled_result.get("has_product_mismatch"):
-            messages.error(
-                request,
-                "Manual validation could not reconcile all unmatched invoice items. Please review the selected mappings.",
-            )
-            return redirect("purchases:po_list")
+            # Gap 1: if every remaining unmatched item is being disputed, that is
+            # a valid resolution — the buyer is formally rejecting those charges.
+            remaining_unmatched = [
+                ep
+                for ep in (reconciled_result.get("extra_products") or [])
+                if ep.get("invoice_item_index") not in disputed_invoice_item_indexes
+            ]
+            if remaining_unmatched:
+                messages.error(
+                    request,
+                    "Manual validation could not reconcile all unmatched invoice items. Please review the selected mappings.",
+                )
+                return redirect("purchases:po_list")
+            # All unmatched items are disputed — override the mismatch flag.
+            reconciled_result["has_product_mismatch"] = False
 
         quantity_resolutions = {}
         for quantity_mismatch in reconciled_result.get("quantity_mismatches") or []:
@@ -432,6 +479,14 @@ def manual_validate_po(request, po_id):
                 note += f' "{invoice_item_name}" was added as an alternative name.'
 
             manual_audit_notes.append(note)
+
+        # Gap 1: record each disputed charge in the audit trail.
+        for disputed_item in disputed_items_data:
+            manual_audit_notes.append(
+                f'Invoice item "{disputed_item["product_name"]}" (qty: {disputed_item["quantity"]}, '
+                f'unit price: {disputed_item["unit_price"]}) was NOT on this PO and was formally '
+                f'disputed. This charge was not accepted.'
+            )
 
         resolved_quantity_mismatches = []
         confirmed_shortages = []
@@ -581,17 +636,40 @@ def manual_validate_po(request, po_id):
             for item in reconciled_result.get("effective_items") or []
         ]
 
+        # Gap 1: persist disputed items so History can display them.
+        if disputed_items_data:
+            reconciled_result["disputed_invoice_items"] = disputed_items_data
+
         now = timezone.now()
         purchase_order.validation_data = reconciled_result
         purchase_order.validated_at = now
         purchase_order.status = PurchaseOrder.STATUS_CLOSED
         purchase_order.closed_at = now
 
-        if confirmed_shortages:
+        has_shortages = bool(confirmed_shortages)
+        has_disputes = bool(disputed_items_data)
+
+        if has_shortages and has_disputes:
+            purchase_order.validation_note = (
+                "Manual reconciliation completed with confirmed shortage and disputed charges."
+            )
+            success_message = (
+                f"{purchase_order.po_number} was manually reconciled and moved to History "
+                "with shortage and disputed charges recorded."
+            )
+        elif has_shortages:
             purchase_order.validation_note = "Manual reconciliation completed with confirmed shortage."
             success_message = (
                 f"{purchase_order.po_number} was manually reconciled and moved to History "
                 "with the confirmed shortage recorded."
+            )
+        elif has_disputes:
+            purchase_order.validation_note = (
+                "Manual reconciliation completed with disputed charges."
+            )
+            success_message = (
+                f"{purchase_order.po_number} was manually validated and moved to History "
+                "with disputed charges recorded."
             )
         else:
             purchase_order.validation_note = "Validated successfully after manual reconciliation."
@@ -739,6 +817,30 @@ def confirm_price_update(request, po_id):
         f"Vendor prices were updated from the invoice and {purchase_order.po_number} moved to History.",
     )
     return redirect("purchases:history_list")
+
+
+@login_required
+@require_POST
+def delete_po(request, po_id):
+    purchase_order = get_object_or_404(PurchaseOrder, pk=po_id)
+
+    if purchase_order.is_closed:
+        messages.error(request, "Closed POs cannot be deleted. They are permanently stored in History.")
+        return redirect("purchases:po_list")
+
+    po_number = purchase_order.po_number
+
+    # Delete the invoice file from storage if one was uploaded
+    if purchase_order.invoice_file:
+        try:
+            purchase_order.invoice_file.delete(save=False)
+        except Exception:
+            pass
+
+    purchase_order.delete()
+
+    messages.success(request, f"{po_number} has been permanently deleted.")
+    return redirect("purchases:po_list")
 
 
 @login_required

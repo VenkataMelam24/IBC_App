@@ -414,6 +414,65 @@
 
 {% block extra_js %}
 <script>
+    /* ── Live search ─────────────────────────────────────────────────────── */
+    document.addEventListener("DOMContentLoaded", function () {
+        const searchInput  = document.querySelector(".search-input");
+        const productGrid  = document.querySelector(".product-grid");
+        const productCards = document.querySelectorAll(".product-card");
+
+        if (!searchInput || !productCards.length) return;
+
+        // Create a "no results" message node we can toggle
+        const noResultsMsg = document.createElement("p");
+        noResultsMsg.className = "empty-message";
+        noResultsMsg.textContent = "No products match your search.";
+        noResultsMsg.style.display = "none";
+        if (productGrid) {
+            productGrid.insertAdjacentElement("afterend", noResultsMsg);
+        }
+
+        function filterCards(query) {
+            const q = query.trim().toLowerCase();
+            let visible = 0;
+
+            productCards.forEach(function (card) {
+                const nameEl    = card.querySelector(".product-name");
+                const packEl    = card.querySelector(".pack-details");
+                const vendorEls = card.querySelectorAll(".vendor-name");
+
+                const nameText   = nameEl   ? nameEl.textContent.toLowerCase()   : "";
+                const packText   = packEl   ? packEl.textContent.toLowerCase()   : "";
+                const vendorText = Array.from(vendorEls)
+                                        .map(function (v) { return v.textContent.toLowerCase(); })
+                                        .join(" ");
+
+                const matches = !q ||
+                    nameText.includes(q) ||
+                    packText.includes(q) ||
+                    vendorText.includes(q);
+
+                card.style.display = matches ? "" : "none";
+                if (matches) visible++;
+            });
+
+            if (productGrid) {
+                productGrid.style.display  = (visible === 0 && q) ? "none" : "";
+                noResultsMsg.style.display = (visible === 0 && q) ? ""     : "none";
+            }
+        }
+
+        searchInput.addEventListener("input", function () {
+            filterCards(this.value);
+        });
+
+        // If the page loaded with a server-side search query pre-filled, apply
+        // the same filter client-side immediately so the input stays in sync.
+        if (searchInput.value) {
+            filterCards(searchInput.value);
+        }
+    });
+
+    /* ── Add-to-cart ─────────────────────────────────────────────────────── */
     document.addEventListener("DOMContentLoaded", function () {
         const addToCartForms = document.querySelectorAll("[data-add-to-cart-form]");
         if (!addToCartForms.length) {

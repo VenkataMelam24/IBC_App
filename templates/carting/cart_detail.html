@@ -173,8 +173,8 @@
 
     .icon-button:disabled,
     .remove-button:disabled {
-        opacity: 0.7;
-        cursor: wait;
+        opacity: 0.4;
+        cursor: not-allowed;
     }
 
     .send-note {
@@ -237,7 +237,7 @@
                                         <div class="quantity-controls">
                                             <form class="inline-form" method="post" action="{% url 'carting:decrease_cart_item' item.id %}" data-cart-ajax-form>
                                                 {% csrf_token %}
-                                                <button class="icon-button" type="submit" aria-label="Decrease quantity">-</button>
+                                                <button class="icon-button" type="submit" aria-label="Decrease quantity" data-cart-decrease-btn{% if item.quantity <= 1 %} disabled{% endif %}>-</button>
                                             </form>
                                             <span class="quantity-value" data-cart-item-quantity>{{ item.quantity }}</span>
                                             <form class="inline-form" method="post" action="{% url 'carting:increase_cart_item' item.id %}" data-cart-ajax-form>
@@ -332,12 +332,16 @@
                 if (!data.removed && row) {
                     const quantity = row.querySelector("[data-cart-item-quantity]");
                     const lineTotal = row.querySelector("[data-cart-item-line-total]");
+                    const decreaseBtn = row.querySelector("[data-cart-decrease-btn]");
 
                     if (quantity) {
                         quantity.textContent = data.quantity;
                     }
                     if (lineTotal) {
                         lineTotal.textContent = data.line_total;
+                    }
+                    if (decreaseBtn) {
+                        decreaseBtn.disabled = data.quantity <= 1;
                     }
                 }
 
@@ -362,7 +366,10 @@
                 window.location.reload();
             } finally {
                 formButtons.forEach(function (button) {
-                    button.disabled = false;
+                    // Decrease button disabled state is set by the response handler — don't override it here.
+                    if (!button.hasAttribute("data-cart-decrease-btn")) {
+                        button.disabled = false;
+                    }
                 });
             }
         }

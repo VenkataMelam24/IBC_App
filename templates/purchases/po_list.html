@@ -180,6 +180,81 @@
         color: #b91c1c;
     }
 
+    .delete-po-strip {
+        display: flex;
+        justify-content: flex-end;
+        padding-top: 14px;
+        margin-top: 14px;
+        border-top: 1px solid #f3f4f6;
+    }
+
+    .delete-po-trigger {
+        font: inherit;
+        font-size: 0.88rem;
+        padding: 6px 12px;
+        border: 1px solid #fca5a5;
+        border-radius: 10px;
+        background: #fff;
+        color: #b91c1c;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.15s ease;
+    }
+
+    .delete-po-trigger:hover {
+        opacity: 1;
+        background: #fff5f5;
+    }
+
+    .delete-po-confirm {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .delete-po-confirm[hidden] {
+        display: none;
+    }
+
+    .delete-po-confirm-text {
+        font-size: 0.9rem;
+        color: #991b1b;
+        font-weight: 500;
+    }
+
+    .delete-cancel-btn {
+        padding: 6px 12px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.88rem;
+    }
+
+    .delete-cancel-btn:hover {
+        background: #f8fafc;
+    }
+
+    .delete-confirm-btn {
+        padding: 6px 12px;
+        border: 1px solid #dc2626;
+        border-radius: 10px;
+        background: #dc2626;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+
+    .delete-confirm-btn:hover {
+        background: #b91c1c;
+        border-color: #b91c1c;
+    }
+
     .upload-form,
     .inline-form {
         display: flex;
@@ -356,6 +431,68 @@
         color: #6b7280;
     }
 
+    /* Map vs Dispute choice for extra invoice items */
+    .reconciliation-action-choice {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #f8fafc;
+    }
+
+    .action-choice-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+
+    .action-choice-option input[type="radio"] {
+        margin: 0;
+        flex-shrink: 0;
+    }
+
+    .action-choice-dispute span {
+        color: #92400e;
+        font-weight: 500;
+    }
+
+    .action-choice-option:has(input:checked).action-choice-dispute {
+        color: #92400e;
+    }
+
+    .extra-item-map-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .extra-item-dispute-section {
+        padding: 12px 14px;
+        border: 1px solid #fcd34d;
+        border-radius: 10px;
+        background: #fffbeb;
+    }
+
+    .dispute-confirmation-text {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #92400e;
+    }
+
+    .reconciliation-row.name-mismatch-row {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #fafafa;
+    }
+
     .quantity-resolution-list {
         display: flex;
         flex-direction: column;
@@ -394,6 +531,11 @@
     }
 
     .mapped-resolution-item[hidden] {
+        display: none;
+    }
+
+    .extra-item-map-section[hidden],
+    .extra-item-dispute-section[hidden] {
         display: none;
     }
 
@@ -587,7 +729,8 @@
 
                         {% if po.validation_data.extra_products %}
                             <div class="validation-block">
-                                <h3>Extra Products</h3>
+                                <h3>Extra Invoice Items</h3>
+                                <p class="helper-note">These items appear on the invoice but were not on the original PO. Use the reconciliation form below to map them to a PO product or formally dispute the charge.</p>
                                 <ul>
                                     {% for item in po.validation_data.extra_products %}
                                         <li>{{ item.product_name }} (Invoice qty: {{ item.quantity }}, Unit price: {{ item.unit_price }})</li>
@@ -644,8 +787,8 @@
 
                                     {% if po.validation_data.extra_products %}
                                         <div class="reconciliation-card">
-                                            <h4>Name mismatch reconciliation</h4>
-                                            <p class="helper-note">This will validate the item and add the invoice name as a new alternative name for the selected product.</p>
+                                            <h4>Unmatched invoice items</h4>
+                                            <p class="helper-note">Each item below appeared on the invoice but was not on this PO. Choose one action per item: map it to a PO product (if it's the same product under a different name), or formally dispute the charge (if it was never ordered).</p>
                                             <div class="reconciliation-grid">
                                                 {% for item in po.validation_data.extra_products %}
                                                     <div class="reconciliation-row name-mismatch-row" data-invoice-item-index="{{ item.invoice_item_index }}" data-invoice-quantity="{{ item.quantity }}" data-invoice-unit-price="{{ item.unit_price }}" data-invoice-line-total="{{ item.line_total|default:'' }}">
@@ -654,72 +797,93 @@
                                                             <span class="reconciliation-value">{{ item.product_name }}</span>
                                                             <span class="reconciliation-label">Invoice qty: {{ item.quantity }} | Unit price: {{ item.unit_price }}</span>
                                                         </div>
-                                                        <div class="reconciliation-detail">
-                                                            <span class="reconciliation-label">Map to product</span>
-                                                            <select class="name-mismatch-select" name="map_product_{{ item.invoice_item_index }}" required>
-                                                                <option value="">Select product</option>
-                                                                <optgroup label="PO Products">
-                                                                    {% for option in po.reconciliation_product_options %}
-                                                                        <option value="{{ option.id }}" data-group="{{ option.group }}" data-po-item-id="{{ option.po_item_id }}" data-po-quantity="{{ option.po_quantity }}" data-po-unit-price="{{ option.po_unit_price }}">{{ option.label }}</option>
-                                                                    {% endfor %}
-                                                                </optgroup>
-                                                            </select>
-                                                        </div>
-                                                        <label class="checkbox-field">
-                                                            <input type="checkbox" name="save_alias_{{ item.invoice_item_index }}" checked>
-                                                            <span>Save as new alternative name</span>
-                                                        </label>
 
-                                                        <div class="mapped-resolution-sections">
-                                                            <div class="quantity-resolution-item mapped-resolution-item mapped-quantity-resolution" hidden>
-                                                                <div class="reconciliation-detail">
-                                                                    <span class="reconciliation-value">Quantity mismatch after mapping</span>
-                                                                    <span class="reconciliation-label">PO quantity: <span class="mapped-po-quantity">-</span> | Invoice quantity: {{ item.quantity }}</span>
+                                                        <div class="reconciliation-action-choice">
+                                                            <label class="action-choice-option">
+                                                                <input type="radio" class="extra-item-action-radio" name="extra_item_action_{{ item.invoice_item_index }}" value="map" checked data-invoice-index="{{ item.invoice_item_index }}">
+                                                                <span>Map to a PO product (same product, different name)</span>
+                                                            </label>
+                                                            <label class="action-choice-option action-choice-dispute">
+                                                                <input type="radio" class="extra-item-action-radio" name="extra_item_action_{{ item.invoice_item_index }}" value="dispute" data-invoice-index="{{ item.invoice_item_index }}">
+                                                                <span>Dispute this charge — item was never ordered</span>
+                                                            </label>
+                                                        </div>
+
+                                                        <div class="extra-item-map-section">
+                                                            <div class="reconciliation-detail">
+                                                                <span class="reconciliation-label">Map to product</span>
+                                                                <select class="name-mismatch-select" name="map_product_{{ item.invoice_item_index }}">
+                                                                    <option value="">Select product</option>
+                                                                    <optgroup label="PO Products">
+                                                                        {% for option in po.reconciliation_product_options %}
+                                                                            <option value="{{ option.id }}" data-group="{{ option.group }}" data-po-item-id="{{ option.po_item_id }}" data-po-quantity="{{ option.po_quantity }}" data-po-unit-price="{{ option.po_unit_price }}">{{ option.label }}</option>
+                                                                        {% endfor %}
+                                                                    </optgroup>
+                                                                </select>
+                                                            </div>
+                                                            <label class="checkbox-field">
+                                                                <input type="checkbox" name="save_alias_{{ item.invoice_item_index }}" checked>
+                                                                <span>Save as new alternative name so it auto-matches next time</span>
+                                                            </label>
+
+                                                            <div class="mapped-resolution-sections">
+                                                                <div class="quantity-resolution-item mapped-resolution-item mapped-quantity-resolution" hidden>
+                                                                    <div class="reconciliation-detail">
+                                                                        <span class="reconciliation-value">Quantity mismatch after mapping</span>
+                                                                        <span class="reconciliation-label">PO quantity: <span class="mapped-po-quantity">-</span> | Invoice quantity: {{ item.quantity }}</span>
+                                                                    </div>
+                                                                    <div class="quantity-resolution-options">
+                                                                        <label class="quantity-resolution-option">
+                                                                            <input class="mapped-quantity-use-po" type="radio" name="mapped_quantity_resolution_{{ item.invoice_item_index }}" value="use_po_quantity">
+                                                                            <span class="mapped-quantity-use-po-label">Full quantity received physically</span>
+                                                                        </label>
+                                                                        <label class="quantity-resolution-option">
+                                                                            <input class="mapped-quantity-use-invoice" type="radio" name="mapped_quantity_resolution_{{ item.invoice_item_index }}" value="use_invoice_quantity">
+                                                                            <span class="mapped-quantity-use-invoice-label">Quantity still missing physically</span>
+                                                                        </label>
+                                                                    </div>
                                                                 </div>
-                                                                <div class="quantity-resolution-options">
-                                                                    <label class="quantity-resolution-option">
-                                                                        <input class="mapped-quantity-use-po" type="radio" name="mapped_quantity_resolution_{{ item.invoice_item_index }}" value="use_po_quantity">
-                                                                        <span class="mapped-quantity-use-po-label">Full quantity received physically</span>
-                                                                    </label>
-                                                                    <label class="quantity-resolution-option">
-                                                                        <input class="mapped-quantity-use-invoice" type="radio" name="mapped_quantity_resolution_{{ item.invoice_item_index }}" value="use_invoice_quantity">
-                                                                        <span class="mapped-quantity-use-invoice-label">Quantity still missing physically</span>
-                                                                    </label>
+
+                                                                <div class="quantity-resolution-item mapped-resolution-item mapped-price-resolution" hidden>
+                                                                    <div class="reconciliation-detail">
+                                                                        <span class="reconciliation-value">Price mismatch after mapping</span>
+                                                                    </div>
+                                                                    <div class="price-comparison-grid">
+                                                                        <div class="reconciliation-detail">
+                                                                            <span class="reconciliation-label">Current / PO price</span>
+                                                                            <span class="reconciliation-value mapped-po-unit-price">-</span>
+                                                                        </div>
+                                                                        <div class="reconciliation-detail">
+                                                                            <span class="reconciliation-label">Invoice / New price</span>
+                                                                            <span class="reconciliation-value">{{ item.unit_price }}</span>
+                                                                        </div>
+                                                                        <div class="reconciliation-detail">
+                                                                            <span class="reconciliation-label">Difference</span>
+                                                                            <span class="reconciliation-value mapped-price-difference">-</span>
+                                                                        </div>
+                                                                        <div class="reconciliation-detail">
+                                                                            <span class="reconciliation-label">Percentage change</span>
+                                                                            <span class="reconciliation-value mapped-price-percentage">-</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="quantity-resolution-options">
+                                                                        <label class="quantity-resolution-option">
+                                                                            <input type="radio" name="mapped_price_decision_{{ item.invoice_item_index }}" value="accepted">
+                                                                            <span>Yes, price changed — update to new price</span>
+                                                                        </label>
+                                                                        <label class="quantity-resolution-option">
+                                                                            <input type="radio" name="mapped_price_decision_{{ item.invoice_item_index }}" value="keep_old">
+                                                                            <span>No, invoice mistake — keep old price</span>
+                                                                        </label>
+                                                                    </div>
                                                                 </div>
                                                             </div>
+                                                        </div>
 
-                                                            <div class="quantity-resolution-item mapped-resolution-item mapped-price-resolution" hidden>
-                                                                <div class="reconciliation-detail">
-                                                                    <span class="reconciliation-value">Price mismatch after mapping</span>
-                                                                </div>
-                                                                <div class="price-comparison-grid">
-                                                                    <div class="reconciliation-detail">
-                                                                        <span class="reconciliation-label">Current / PO price</span>
-                                                                        <span class="reconciliation-value mapped-po-unit-price">-</span>
-                                                                    </div>
-                                                                    <div class="reconciliation-detail">
-                                                                        <span class="reconciliation-label">Invoice / New price</span>
-                                                                        <span class="reconciliation-value">{{ item.unit_price }}</span>
-                                                                    </div>
-                                                                    <div class="reconciliation-detail">
-                                                                        <span class="reconciliation-label">Difference</span>
-                                                                        <span class="reconciliation-value mapped-price-difference">-</span>
-                                                                    </div>
-                                                                    <div class="reconciliation-detail">
-                                                                        <span class="reconciliation-label">Percentage change</span>
-                                                                        <span class="reconciliation-value mapped-price-percentage">-</span>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="quantity-resolution-options">
-                                                                    <label class="quantity-resolution-option">
-                                                                        <input type="radio" name="mapped_price_decision_{{ item.invoice_item_index }}" value="accepted">
-                                                                        <span>Yes, price changed — update to new price</span>
-                                                                    </label>
-                                                                    <label class="quantity-resolution-option">
-                                                                        <input type="radio" name="mapped_price_decision_{{ item.invoice_item_index }}" value="keep_old">
-                                                                        <span>No, invoice mistake — keep old price</span>
-                                                                    </label>
-                                                                </div>
+                                                        <div class="extra-item-dispute-section" hidden>
+                                                            <input type="hidden" class="dispute-hidden-input" name="dispute_{{ item.invoice_item_index }}" value="" disabled>
+                                                            <div class="dispute-confirmation">
+                                                                <p class="dispute-confirmation-text">This charge will be formally disputed and recorded in the audit trail. The item will not be included in the reconciled totals.</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -910,6 +1074,20 @@
                         {% endif %}
                     </div>
                 {% endif %}
+
+                <div class="delete-po-strip">
+                    <div class="delete-po-control" data-delete-control="{{ po.id }}">
+                        <button type="button" class="delete-po-trigger" data-delete-trigger="{{ po.id }}">Delete PO</button>
+                        <div class="delete-po-confirm" data-delete-confirm="{{ po.id }}" hidden>
+                            <span class="delete-po-confirm-text">Delete {{ po.po_number }} permanently?</span>
+                            <button type="button" class="delete-cancel-btn" data-delete-cancel="{{ po.id }}">Cancel</button>
+                            <form class="inline-form" method="post" action="{% url 'purchases:delete_po' po.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="delete-confirm-btn">Yes, Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </section>
         {% endfor %}
     </div>
@@ -1051,7 +1229,52 @@
             }
         }
 
+        // Gap 1: wire up Map vs Dispute toggle for each extra invoice item row.
+        function applyExtraItemMode(row, mode) {
+            const mapSection     = row.querySelector(".extra-item-map-section");
+            const disputeSection = row.querySelector(".extra-item-dispute-section");
+            const disputeInput   = row.querySelector(".dispute-hidden-input");
+            const mapSelect      = row.querySelector(".name-mismatch-select");
+            const invoiceIdx     = row.dataset.invoiceItemIndex || "";
+
+            if (mode === "dispute") {
+                if (mapSection)     { mapSection.hidden     = true; }
+                if (disputeSection) { disputeSection.hidden = false; }
+                if (disputeInput)   {
+                    disputeInput.name     = `dispute_${invoiceIdx}`;
+                    disputeInput.value    = "on";
+                    disputeInput.disabled = false;
+                }
+                if (mapSelect) {
+                    mapSelect.required = false;
+                    mapSelect.disabled = true;
+                }
+            } else {
+                if (mapSection)     { mapSection.hidden     = false; }
+                if (disputeSection) { disputeSection.hidden = true; }
+                if (disputeInput)   {
+                    disputeInput.value    = "";
+                    disputeInput.disabled = true;
+                }
+                if (mapSelect) {
+                    mapSelect.required = false; // server validates
+                    mapSelect.disabled = false;
+                }
+                // Refresh the mapped resolution panels for the now-visible select.
+                updateMappedResolutionRow(row);
+            }
+        }
+
         forms.forEach(function (form) {
+            // Wire dispute-toggle radios first.
+            form.querySelectorAll(".extra-item-action-radio").forEach(function (radio) {
+                radio.addEventListener("change", function () {
+                    const row = this.closest(".name-mismatch-row");
+                    if (row) { applyExtraItemMode(row, this.value); }
+                });
+            });
+
+            // Wire mapped-resolution panels for name-mismatch rows.
             form.querySelectorAll(".name-mismatch-row").forEach(function (row) {
                 const select = row.querySelector(".name-mismatch-select");
                 if (!select) {
@@ -1062,13 +1285,42 @@
                     updateMappedResolutionRow(row);
                 });
 
-                row.querySelectorAll("input[type='radio']").forEach(function (input) {
+                // Only listen to radios inside the map section (not the action-choice radios).
+                const mapSection = row.querySelector(".extra-item-map-section");
+                const radioScope = mapSection || row;
+                radioScope.querySelectorAll("input[type='radio']").forEach(function (input) {
                     input.addEventListener("change", function () {
                         updateMappedResolutionRow(row);
                     });
                 });
 
-                updateMappedResolutionRow(row);
+                // Set initial state based on the default-checked action radio.
+                const checkedAction = row.querySelector(".extra-item-action-radio:checked");
+                applyExtraItemMode(row, checkedAction ? checkedAction.value : "map");
+            });
+        });
+
+        // Delete PO two-step confirmation
+        document.querySelectorAll("[data-delete-trigger]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                const id = this.dataset.deleteTrigger;
+                const control = document.querySelector("[data-delete-control='" + id + "']");
+                if (!control) { return; }
+                this.hidden = true;
+                const confirm = control.querySelector("[data-delete-confirm]");
+                if (confirm) { confirm.hidden = false; }
+            });
+        });
+
+        document.querySelectorAll("[data-delete-cancel]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                const id = this.dataset.deleteCancel;
+                const control = document.querySelector("[data-delete-control='" + id + "']");
+                if (!control) { return; }
+                const confirm = control.querySelector("[data-delete-confirm]");
+                if (confirm) { confirm.hidden = true; }
+                const trigger = control.querySelector("[data-delete-trigger]");
+                if (trigger) { trigger.hidden = false; }
             });
         });
     });

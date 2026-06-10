@@ -219,6 +219,37 @@
         color: #115e59;
     }
 
+    .history-note.disputed-charges-note {
+        border-color: #fcd34d;
+        background: #fffbeb;
+        color: #78350f;
+        font-size: 0.92rem;
+    }
+
+    .disputed-charges-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 0.9rem;
+    }
+
+    .disputed-charges-table th,
+    .disputed-charges-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid #fcd34d;
+        text-align: left;
+    }
+
+    .disputed-charges-table thead th {
+        color: #92400e;
+        font-weight: 600;
+        background: rgba(252, 211, 77, 0.15);
+    }
+
+    .disputed-charges-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
     .history-summary-list,
     .history-audit-list {
         margin: 12px 0 0;
@@ -398,6 +429,32 @@
                         {% endif %}
                     </div>
                 </div>
+
+                {% if po.validation_data.disputed_invoice_items %}
+                    <div class="history-note disputed-charges-note">
+                        <strong>Disputed Charges</strong> — the following items appeared on the invoice but were not on this PO and were formally disputed:
+                        <table class="disputed-charges-table">
+                            <thead>
+                                <tr>
+                                    <th>Invoice Item</th>
+                                    <th>Qty</th>
+                                    <th>Unit Price</th>
+                                    <th>Line Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in po.validation_data.disputed_invoice_items %}
+                                    <tr>
+                                        <td>{{ item.product_name }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>{{ item.unit_price }}</td>
+                                        <td>{{ item.line_total }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
 
                 {% if po.validation_note %}
                     <div class="history-note {% if po.has_manual_mismatch_note %}manual{% elif po.validation_note == 'Validated successfully' %}success{% endif %}">

@@ -3,13 +3,18 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import connection
+from django.db.models import Case, DecimalField, ExpressionWrapper, F, Sum, Value, When
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from inventory.models import Product, VendorProductPrice
 
 from .models import Cart, CartItem
+
+_MONEY_FIELD = DecimalField(max_digits=14, decimal_places=2)
 
 
 def _money(value):
@@ -27,56 +32,49 @@ def _wants_json_response(request):
 def _build_cart_response_payload(
     cart,
     *,
-    cart_item=None,
     cart_item_id=None,
     product_id=None,
     vendor_id=None,
+    quantity=0,
+    unit_price=None,
     removed=False,
     message="",
 ):
-    cart_items = list(cart.items.select_related("vendor"))
-    cart_count = 0
-    grand_total = Decimal("0.00")
-    vendor_subtotal = Decimal("0.00")
-    vendor_has_items = False
+    line_expr = ExpressionWrapper(F("unit_price") * F("quantity"), output_field=_MONEY_FIELD)
+    agg_kwargs = {
+        "cart_count": Sum("quantity"),
+        "grand_total": Sum(line_expr),
+    }
+    if vendor_id is not None:
+        agg_kwargs["vendor_subtotal"] = Sum(
+            Case(
+                When(vendor_id=vendor_id, then=line_expr),
+                default=Value(Decimal("0.00")),
+                output_field=_MONEY_FIELD,
+            )
+        )
+    agg = cart.items.aggregate(**agg_kwargs)
 
-    for existing_item in cart_items:
-        line_total = existing_item.unit_price * existing_item.quantity
-        cart_count += existing_item.quantity
-        grand_total += line_total
+    cart_count = agg["cart_count"] or 0
+    grand_total = agg["grand_total"] or Decimal("0.00")
+    vendor_subtotal = agg.get("vendor_subtotal") or Decimal("0.00")
 
-        if vendor_id is not None and existing_item.vendor_id == vendor_id:
-            vendor_subtotal += line_total
-            vendor_has_items = True
-
-    if cart_item is not None and not removed:
-        quantity = cart_item.quantity
-        unit_price = _money(cart_item.unit_price)
-        line_total = _money(cart_item.unit_price * cart_item.quantity)
-        cart_item_id = cart_item.id
-        product_id = cart_item.product_id
-    else:
-        quantity = 0
-        unit_price = None
-        line_total = "0.00"
-
-    payload = {
+    return {
         "success": True,
         "cart_item_id": cart_item_id,
         "product_id": product_id,
         "vendor_id": vendor_id,
         "quantity": quantity,
-        "unit_price": unit_price,
-        "line_total": line_total,
+        "unit_price": _money(unit_price) if unit_price is not None else None,
+        "line_total": _money(unit_price * quantity) if unit_price is not None else "0.00",
         "vendor_subtotal": _money(vendor_subtotal),
         "grand_total": _money(grand_total),
         "cart_count": cart_count,
         "removed": removed,
-        "vendor_empty": vendor_id is not None and not vendor_has_items,
-        "cart_empty": not cart_items,
+        "vendor_empty": vendor_id is not None and vendor_subtotal == 0,
+        "cart_empty": cart_count == 0,
         "message": message,
     }
-    return payload
 
 
 @login_required
@@ -125,49 +123,53 @@ def cart_detail(request):
 @login_required
 @require_POST
 def add_to_cart(request, product_id, vendor_id):
-    product = get_object_or_404(Product, pk=product_id, is_active=True)
+    # One query: VendorProductPrice joined with Vendor and Product
     vendor_price = get_object_or_404(
-        VendorProductPrice.objects.select_related("vendor"),
-        product=product,
+        VendorProductPrice.objects.select_related("vendor", "product"),
+        product_id=product_id,
         vendor_id=vendor_id,
         is_active=True,
+        product__is_active=True,
     )
+    product = vendor_price.product
 
-    cart = Cart.objects.filter(
-        user=request.user,
-        status=Cart.STATUS_OPEN,
-    ).first()
-
+    cart = Cart.objects.filter(user=request.user, status=Cart.STATUS_OPEN).first()
     if cart is None:
         cart = Cart.objects.create(user=request.user, status=Cart.STATUS_OPEN)
 
-    cart_item, created = CartItem.objects.get_or_create(
-        cart=cart,
-        product=product,
-        vendor=vendor_price.vendor,
-        defaults={
-            "quantity": 1,
-            "unit_price": vendor_price.price,
-        },
-    )
-
-    if not created:
-        cart_item.quantity += 1
-        cart_item.save(update_fields=["quantity", "updated_at"])
+    # Single-query upsert: avoids get_or_create's SAVEPOINT/RELEASE round trips
+    now = timezone.now()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO carting_cartitem
+                (cart_id, product_id, vendor_id, quantity, unit_price, created_at, updated_at)
+            VALUES (%s, %s, %s, 1, %s, %s, %s)
+            ON CONFLICT (cart_id, product_id, vendor_id)
+            DO UPDATE SET
+                quantity   = carting_cartitem.quantity + 1,
+                updated_at = EXCLUDED.updated_at
+            RETURNING id, quantity
+            """,
+            [cart.id, product.id, vendor_price.vendor_id, vendor_price.price, now, now],
+        )
+        item_id, item_quantity = cursor.fetchone()
 
     success_message = f"{product.display_name} added to cart"
     if _wants_json_response(request):
         return JsonResponse(
             _build_cart_response_payload(
                 cart,
-                cart_item=cart_item,
+                cart_item_id=item_id,
+                product_id=product.id,
                 vendor_id=vendor_price.vendor_id,
+                quantity=item_quantity,
+                unit_price=vendor_price.price,
                 message=success_message,
             )
         )
 
     messages.success(request, success_message)
-
     return redirect("inventory:product_list")
 
 
@@ -187,8 +189,11 @@ def increase_cart_item(request, item_id):
         return JsonResponse(
             _build_cart_response_payload(
                 cart_item.cart,
-                cart_item=cart_item,
+                cart_item_id=cart_item.id,
+                product_id=cart_item.product_id,
                 vendor_id=cart_item.vendor_id,
+                quantity=cart_item.quantity,
+                unit_price=cart_item.unit_price,
                 message="Cart item quantity updated.",
             )
         )
@@ -211,6 +216,7 @@ def decrease_cart_item(request, item_id):
     cart_item_id = cart_item.id
     product_id = cart_item.product_id
     vendor_id = cart_item.vendor_id
+    unit_price = cart_item.unit_price
 
     if cart_item.quantity > 1:
         cart_item.quantity -= 1
@@ -223,10 +229,11 @@ def decrease_cart_item(request, item_id):
         return JsonResponse(
             _build_cart_response_payload(
                 cart,
-                cart_item=None if removed else cart_item,
                 cart_item_id=cart_item_id,
                 product_id=product_id,
                 vendor_id=vendor_id,
+                quantity=0 if removed else cart_item.quantity,
+                unit_price=None if removed else unit_price,
                 removed=removed,
                 message="Cart item quantity updated.",
             )

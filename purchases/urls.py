@@ -6,6 +6,7 @@ from .views import (
     close_po_manually_with_prices,
     confirm_price_update,
     create_po_from_cart_vendor,
+    delete_po,
     download_po_pdf,
     history_list,
     manual_validate_po,
@@ -35,5 +36,6 @@ urlpatterns = [
         name="close_po_manually_with_prices",
     ),
     path("po/<int:po_id>/confirm-prices/", confirm_price_update, name="confirm_price_update"),
+    path("po/<int:po_id>/delete/", delete_po, name="delete_po"),
     path("history/", history_list, name="history_list"),
 ]

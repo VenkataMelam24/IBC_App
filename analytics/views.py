@@ -1,8 +1,10 @@
+from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from .selectors import (
     get_average_po_value,
@@ -16,22 +18,28 @@ from .selectors import (
     get_vendor_price_change_movement_by_vendor,
     get_vendor_wise_spend,
 )
-from .utils import SUPPORTED_PERIODS
 
 
-PERIOD_OPTIONS = [
-    ("weekly", "Weekly"),
-    ("monthly", "Monthly"),
-    ("quarterly", "Quarterly"),
-    ("half_year", "Half-Year"),
-    ("yearly", "Year"),
-]
+def _parse_date_from_param(value):
+    """Parse a YYYY-MM-DD string to start-of-day aware datetime. Returns None if invalid."""
+    if not value:
+        return None
+    try:
+        d = date.fromisoformat(value.strip())
+        return timezone.make_aware(datetime.combine(d, time.min), timezone.get_current_timezone())
+    except (ValueError, AttributeError):
+        return None
 
 
-def _normalize_period(period):
-    if period in SUPPORTED_PERIODS:
-        return period
-    return "monthly"
+def _parse_date_to_param(value):
+    """Parse a YYYY-MM-DD string to end-of-day aware datetime. Returns None if invalid."""
+    if not value:
+        return None
+    try:
+        d = date.fromisoformat(value.strip())
+        return timezone.make_aware(datetime.combine(d, time.max), timezone.get_current_timezone())
+    except (ValueError, AttributeError):
+        return None
 
 
 def _to_decimal(value, default=Decimal("0.00")):
@@ -164,19 +172,29 @@ def product_price_trend_data_view(request):
 
 @login_required
 def dashboard_view(request):
-    selected_period = _normalize_period((request.GET.get("period") or "monthly").strip())
+    # Default to current month when no dates are provided
+    today = timezone.localdate()
+    default_date_from_str = today.replace(day=1).isoformat()
+    default_date_to_str = today.isoformat()
+
+    date_from_str = (request.GET.get("date_from") or "").strip() or default_date_from_str
+    date_to_str = (request.GET.get("date_to") or "").strip() or default_date_to_str
+
+    date_from = _parse_date_from_param(date_from_str)
+    date_to = _parse_date_to_param(date_to_str)
+
     trend_product_options = get_products_with_price_trend()
     selected_trend_product_id = _resolve_selected_trend_product_id(request, trend_product_options)
 
-    spend_metrics = get_total_spend_metrics(selected_period)
-    average_po_value = get_average_po_value(selected_period)
+    spend_metrics = get_total_spend_metrics(date_from=date_from, date_to=date_to)
+    average_po_value = get_average_po_value(date_from=date_from, date_to=date_to)
     total_products = get_total_products_count()
-    total_po_count = get_total_po_count(selected_period)
-    vendor_wise_spend = get_vendor_wise_spend(selected_period)
-    vendor_order_frequency = get_vendor_order_frequency(selected_period)
-    top_products_quantity = get_top_products(selected_period, by="quantity")
-    top_products_value = get_top_products(selected_period, by="value")
-    vendor_price_change_movement = get_vendor_price_change_movement_by_vendor(selected_period)
+    total_po_count = get_total_po_count(date_from=date_from, date_to=date_to)
+    vendor_wise_spend = get_vendor_wise_spend(date_from=date_from, date_to=date_to)
+    vendor_order_frequency = get_vendor_order_frequency(date_from=date_from, date_to=date_to)
+    top_products_quantity = get_top_products(by="quantity", date_from=date_from, date_to=date_to)
+    top_products_value = get_top_products(by="value", date_from=date_from, date_to=date_to)
+    vendor_price_change_movement = get_vendor_price_change_movement_by_vendor(date_from=date_from, date_to=date_to)
     vendor_wise_spend_chart_rows = _positive_money_rows(vendor_wise_spend, value_key="total_spend")
     vendor_order_frequency_chart_rows = _sort_rows_desc(
         vendor_order_frequency,
@@ -186,20 +204,9 @@ def dashboard_view(request):
     product_price_trend_payload = _build_product_price_trend_payload(selected_trend_product_id)
 
     context = {
-        "selected_period": selected_period,
-        "period_options": [
-            {
-                "value": value,
-                "label": label,
-                "is_active": value == selected_period,
-                "href": (
-                    f"?period={value}&trend_product={selected_trend_product_id}"
-                    if selected_trend_product_id
-                    else f"?period={value}"
-                ),
-            }
-            for value, label in PERIOD_OPTIONS
-        ],
+        "date_from": date_from_str,
+        "date_to": date_to_str,
+        "selected_trend_product_id": selected_trend_product_id or "",
         "kpi_total_spend": _euro_display(spend_metrics["gross_spend"]),
         "kpi_total_spend_net": _euro_display(spend_metrics["net_spend"]),
         "kpi_total_spend_tax": _euro_display(spend_metrics["tax_spend"]),

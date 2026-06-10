@@ -18,7 +18,6 @@ from django.db.models.functions import Abs, Coalesce
 
 from analytics.constants import PriceDirection
 from analytics.models import FactPriceChangeEvent, FactPurchaseOrder, FactPurchaseOrderItem
-from analytics.utils import resolve_period_range
 from inventory.models import PriceHistory, Product
 
 
@@ -37,30 +36,27 @@ def _quantize_percent(value):
     return Decimal(str(value or Decimal("0.00"))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _resolved_period_range(period, reference=None):
-    return resolve_period_range(period, reference=reference)
-
-
-def _filter_fact_queryset_for_period(queryset, period, reference=None):
-    period_range = _resolved_period_range(period, reference=reference)
-    return queryset.annotate(
+def _filter_fact_queryset_for_range(queryset, date_from=None, date_to=None):
+    queryset = queryset.annotate(
         reporting_timestamp=Coalesce("closed_at", "created_at", output_field=DateTimeField())
-    ).filter(
-        reporting_timestamp__gte=period_range["date_from"],
-        reporting_timestamp__lte=period_range["date_to"],
     )
+    if date_from is not None:
+        queryset = queryset.filter(reporting_timestamp__gte=date_from)
+    if date_to is not None:
+        queryset = queryset.filter(reporting_timestamp__lte=date_to)
+    return queryset
 
 
-def _filter_price_event_queryset_for_period(queryset, period, reference=None):
-    period_range = _resolved_period_range(period, reference=reference)
-    return queryset.filter(
-        changed_at__gte=period_range["date_from"],
-        changed_at__lte=period_range["date_to"],
-    )
+def _filter_price_event_queryset_for_range(queryset, date_from=None, date_to=None):
+    if date_from is not None:
+        queryset = queryset.filter(changed_at__gte=date_from)
+    if date_to is not None:
+        queryset = queryset.filter(changed_at__lte=date_to)
+    return queryset
 
 
-def get_total_spend_metrics(period, reference=None):
-    queryset = _filter_fact_queryset_for_period(FactPurchaseOrder.objects.all(), period, reference=reference)
+def get_total_spend_metrics(date_from=None, date_to=None):
+    queryset = _filter_fact_queryset_for_range(FactPurchaseOrder.objects.all(), date_from=date_from, date_to=date_to)
     aggregates = queryset.aggregate(
         gross_spend=Coalesce(Sum("final_grand_total"), ZERO_MONEY),
         net_spend=Coalesce(Sum("final_net_total"), ZERO_MONEY),
@@ -73,8 +69,8 @@ def get_total_spend_metrics(period, reference=None):
     }
 
 
-def get_average_po_value(period, reference=None):
-    queryset = _filter_fact_queryset_for_period(FactPurchaseOrder.objects.all(), period, reference=reference)
+def get_average_po_value(date_from=None, date_to=None):
+    queryset = _filter_fact_queryset_for_range(FactPurchaseOrder.objects.all(), date_from=date_from, date_to=date_to)
     aggregate = queryset.aggregate(average_po_value=Avg("final_grand_total"))
     return {
         "average_po_value": _quantize_money(aggregate["average_po_value"]),
@@ -85,13 +81,17 @@ def get_total_products_count():
     return {"active_product_count": Product.objects.filter(is_active=True).count()}
 
 
-def get_total_po_count(period, reference=None):
-    queryset = _filter_fact_queryset_for_period(FactPurchaseOrder.objects.all(), period, reference=reference)
+def get_total_po_count(date_from=None, date_to=None):
+    queryset = _filter_fact_queryset_for_range(FactPurchaseOrder.objects.all(), date_from=date_from, date_to=date_to)
     return {"po_count": queryset.count()}
 
 
-def get_vendor_wise_spend(period, reference=None):
-    queryset = _filter_fact_queryset_for_period(FactPurchaseOrder.objects.select_related("vendor"), period, reference=reference)
+def get_vendor_wise_spend(date_from=None, date_to=None):
+    queryset = _filter_fact_queryset_for_range(
+        FactPurchaseOrder.objects.select_related("vendor"),
+        date_from=date_from,
+        date_to=date_to,
+    )
     rows = queryset.values("vendor_id", "vendor__name").annotate(
         total_spend=Coalesce(Sum("final_grand_total"), ZERO_MONEY)
     ).order_by("-total_spend", "vendor__name")
@@ -106,11 +106,11 @@ def get_vendor_wise_spend(period, reference=None):
     ]
 
 
-def get_vendor_order_frequency(period, reference=None):
-    queryset = _filter_fact_queryset_for_period(
+def get_vendor_order_frequency(date_from=None, date_to=None):
+    queryset = _filter_fact_queryset_for_range(
         FactPurchaseOrder.objects.select_related("vendor"),
-        period,
-        reference=reference,
+        date_from=date_from,
+        date_to=date_to,
     ).filter(final_grand_total__gt=Decimal("0.00"))
     rows = queryset.values("vendor_id", "vendor__name").annotate(
         po_count=Count("id")
@@ -126,7 +126,7 @@ def get_vendor_order_frequency(period, reference=None):
     ]
 
 
-def get_top_products(period, by="quantity", reference=None, vendor_id=None):
+def get_top_products(by="quantity", date_from=None, date_to=None, vendor_id=None):
     metric_field = {
         "quantity": "accepted_quantity",
         "value": "accepted_line_total",
@@ -134,10 +134,10 @@ def get_top_products(period, by="quantity", reference=None, vendor_id=None):
     if metric_field is None:
         raise ValueError("Unsupported top-products metric. Expected 'quantity' or 'value'.")
 
-    queryset = _filter_fact_queryset_for_period(
+    queryset = _filter_fact_queryset_for_range(
         FactPurchaseOrderItem.objects.select_related("product"),
-        period,
-        reference=reference,
+        date_from=date_from,
+        date_to=date_to,
     )
     if vendor_id not in (None, "", "all"):
         queryset = queryset.filter(vendor_id=vendor_id)
@@ -156,11 +156,11 @@ def get_top_products(period, by="quantity", reference=None, vendor_id=None):
     ]
 
 
-def get_frequent_price_changes(period, reference=None):
-    base_queryset = _filter_price_event_queryset_for_period(
+def get_frequent_price_changes(date_from=None, date_to=None):
+    base_queryset = _filter_price_event_queryset_for_range(
         FactPriceChangeEvent.objects.filter(accepted_flag=True).select_related("product", "vendor"),
-        period,
-        reference=reference,
+        date_from=date_from,
+        date_to=date_to,
     )
     latest_event_queryset = base_queryset.filter(
         vendor_id=OuterRef("vendor_id"),
@@ -201,14 +201,12 @@ def get_frequent_price_changes(period, reference=None):
     return results
 
 
-def get_products_with_price_trend(period=None, reference=None):
+def get_products_with_price_trend(date_from=None, date_to=None):
     queryset = Product.objects.filter(price_history__isnull=False)
-    if period:
-        period_range = _resolved_period_range(period, reference=reference)
-        queryset = queryset.filter(
-            price_history__date__gte=period_range["date_from"].date(),
-            price_history__date__lte=period_range["date_to"].date(),
-        )
+    if date_from is not None:
+        queryset = queryset.filter(price_history__date__gte=date_from.date())
+    if date_to is not None:
+        queryset = queryset.filter(price_history__date__lte=date_to.date())
 
     rows = queryset.distinct().order_by("display_name", "product_name", "id").values(
         "id",
@@ -225,7 +223,7 @@ def get_products_with_price_trend(period=None, reference=None):
     ]
 
 
-def get_product_price_trend(product_id, period=None, reference=None):
+def get_product_price_trend(product_id, date_from=None, date_to=None):
     if not product_id:
         return {
             "product_id": None,
@@ -237,12 +235,10 @@ def get_product_price_trend(product_id, period=None, reference=None):
     queryset = PriceHistory.objects.filter(
         product_id=product_id,
     ).select_related("product", "vendor").order_by("date", "id")
-    if period:
-        period_range = _resolved_period_range(period, reference=reference)
-        queryset = queryset.filter(
-            date__gte=period_range["date_from"].date(),
-            date__lte=period_range["date_to"].date(),
-        )
+    if date_from is not None:
+        queryset = queryset.filter(date__gte=date_from.date())
+    if date_to is not None:
+        queryset = queryset.filter(date__lte=date_to.date())
 
     history_entries = list(queryset)
     product = Product.objects.filter(pk=product_id).first()
@@ -300,7 +296,7 @@ def get_product_price_trend(product_id, period=None, reference=None):
     }
 
 
-def get_vendor_price_change_movement_by_vendor(period, reference=None):
+def get_vendor_price_change_movement_by_vendor(date_from=None, date_to=None):
     accepted_quantity_subquery = FactPurchaseOrderItem.objects.filter(
         po_id=OuterRef("po_id"),
         product_id=OuterRef("product_id"),
@@ -308,12 +304,12 @@ def get_vendor_price_change_movement_by_vendor(period, reference=None):
         total_accepted_quantity=Coalesce(Sum("accepted_quantity"), ZERO_QUANTITY)
     ).values("total_accepted_quantity")[:1]
 
-    queryset = _filter_price_event_queryset_for_period(
+    queryset = _filter_price_event_queryset_for_range(
         FactPriceChangeEvent.objects.filter(
             accepted_flag=True,
         ).select_related("vendor"),
-        period,
-        reference=reference,
+        date_from=date_from,
+        date_to=date_to,
     ).annotate(
         accepted_quantity=Coalesce(
             Subquery(accepted_quantity_subquery, output_field=QUANTITY_FIELD),
@@ -378,8 +374,8 @@ def get_vendor_price_change_movement_by_vendor(period, reference=None):
     return results
 
 
-def get_vendor_price_increase_impact_by_vendor(period, reference=None):
-    movement_rows = get_vendor_price_change_movement_by_vendor(period, reference=reference)
+def get_vendor_price_increase_impact_by_vendor(date_from=None, date_to=None):
+    movement_rows = get_vendor_price_change_movement_by_vendor(date_from=date_from, date_to=date_to)
     return [
         {
             "vendor_id": row["vendor_id"],
@@ -396,8 +392,8 @@ def get_vendor_price_increase_impact_by_vendor(period, reference=None):
     ]
 
 
-def get_vendor_price_increase_distribution(period, reference=None):
-    return get_vendor_price_change_movement_by_vendor(period, reference=reference)
+def get_vendor_price_increase_distribution(date_from=None, date_to=None):
+    return get_vendor_price_change_movement_by_vendor(date_from=date_from, date_to=date_to)
 
 
 __all__ = [

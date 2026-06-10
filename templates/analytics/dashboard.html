@@ -41,37 +41,78 @@
         font-size: 0.98rem;
     }
 
-    .filter-bar {
+    .date-range-form {
         display: inline-flex;
         flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 8px;
-        padding: 8px;
+        align-items: flex-end;
+        gap: 10px;
+        padding: 10px 12px;
         border: 1px solid #dbe2ea;
         border-radius: 14px;
         background: #ffffff;
     }
 
-    .filter-chip {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 0;
-        padding: 7px 11px;
-        border: 1px solid #dbe2ea;
-        border-radius: 999px;
-        background: #f8fafc;
-        color: #111827 !important;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 0.88rem;
-        line-height: 1.2;
+    .date-range-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
     }
 
-    .filter-chip.active {
+    .date-range-field label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .date-range-field input[type="date"] {
+        padding: 7px 10px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #111827;
+        font: inherit;
+        font-size: 0.92rem;
+    }
+
+    .date-range-field input[type="date"]:focus {
+        outline: none;
         border-color: #7b1a38;
+    }
+
+    .date-range-apply {
+        padding: 8px 16px;
+        border: 1px solid #7b1a38;
+        border-radius: 10px;
         background: #7b1a38;
-        color: #ffffff !important;
+        color: #ffffff;
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .date-range-apply:hover {
+        background: #5e1429;
+        border-color: #5e1429;
+    }
+
+    .date-range-clear {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #374151;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .date-range-clear:hover {
+        background: #f8fafc;
     }
 
     .kpi-grid {
@@ -439,8 +480,8 @@
             align-items: flex-start;
         }
 
-        .filter-bar {
-            justify-content: flex-start;
+        .date-range-form {
+            width: 100%;
         }
 
         .chart-header,
@@ -451,11 +492,6 @@
 
         .chart-controls {
             width: 100%;
-        }
-
-        .filter-chip {
-            min-width: 0;
-            flex: 1 1 auto;
         }
     }
 </style>
@@ -468,17 +504,19 @@
             <div class="page-header-copy">
                 <h1 class="page-title">Analytics Dashboard</h1>
             </div>
-            <div class="filter-bar">
-                {% for option in period_options %}
-                    <a
-                        href="{{ option.href }}"
-                        data-period-filter-link
-                        class="filter-chip{% if option.is_active %} active{% endif %}"
-                    >
-                        {{ option.label }}
-                    </a>
-                {% endfor %}
-            </div>
+            <form method="get" class="date-range-form" data-date-range-form>
+                <input type="hidden" name="trend_product" id="dateRangeTrendProductInput" value="{{ selected_trend_product_id }}">
+                <div class="date-range-field">
+                    <label for="analyticsDateFrom">From</label>
+                    <input type="date" id="analyticsDateFrom" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="date-range-field">
+                    <label for="analyticsDateTo">To</label>
+                    <input type="date" id="analyticsDateTo" name="date_to" value="{{ date_to }}">
+                </div>
+                <button type="submit" class="date-range-apply">Apply</button>
+                <a href="{% url 'analytics:index' %}" class="date-range-clear">Clear</a>
+            </form>
         </div>
         <p class="page-subtitle">Operational reporting built from analytics facts and final accepted procurement outcomes.</p>
     </section>
@@ -583,7 +621,6 @@
                 <p class="chart-subtitle">Full price history over time for the selected product across vendors.</p>
             </div>
             <form method="get" class="chart-controls" data-price-trend-form data-price-trend-endpoint-url="{% url 'analytics:product_price_trend_data' %}">
-                <input type="hidden" name="period" value="{{ selected_period }}">
                 <label class="select-pill-control">
                     <select name="trend_product" class="pill-select" data-price-trend-product-select {% if not price_trend_product_options %}disabled{% endif %}>
                         {% if price_trend_product_options %}
@@ -1309,7 +1346,7 @@
     const productPriceTrendChartWrap = document.querySelector("[data-product-price-trend-chart-wrap]");
     const productPriceTrendEmptyState = document.querySelector("[data-product-price-trend-empty-state]");
     const productPriceTrendLoading = document.querySelector("[data-product-price-trend-loading]");
-    const periodFilterLinks = document.querySelectorAll("[data-period-filter-link]");
+    const dateRangeTrendProductInput = document.getElementById("dateRangeTrendProductInput");
 
     function buildCurrentDashboardUrl(searchParams) {
         const queryString = searchParams.toString();
@@ -1324,18 +1361,11 @@
             currentSearchParams.delete("trend_product");
         }
         window.history.replaceState({}, "", buildCurrentDashboardUrl(currentSearchParams));
-    }
-
-    function updatePeriodFilterLinks(productId) {
-        periodFilterLinks.forEach((link) => {
-            const linkUrl = new URL(link.getAttribute("href"), window.location.href);
-            if (productId) {
-                linkUrl.searchParams.set("trend_product", productId);
-            } else {
-                linkUrl.searchParams.delete("trend_product");
-            }
-            link.setAttribute("href", buildCurrentDashboardUrl(linkUrl.searchParams));
-        });
+        // Keep the hidden input in the date-range form in sync so submitting the form
+        // preserves the selected trend product.
+        if (dateRangeTrendProductInput) {
+            dateRangeTrendProductInput.value = productId || "";
+        }
     }
 
     function setProductPriceTrendLoading(isLoading) {
@@ -1351,10 +1381,6 @@
         const url = new URL(productPriceTrendForm.dataset.priceTrendEndpointUrl, window.location.origin);
         if (productId) {
             url.searchParams.set("trend_product", productId);
-        }
-        const periodInput = productPriceTrendForm.querySelector('input[name="period"]');
-        if (periodInput && periodInput.value) {
-            url.searchParams.set("period", periodInput.value);
         }
         return url;
     }
@@ -1477,7 +1503,6 @@
         }
 
         updateTrendProductQueryParam(selectedProductId);
-        updatePeriodFilterLinks(selectedProductId);
     }
 
     async function fetchAndApplyProductPriceTrend(productId) {

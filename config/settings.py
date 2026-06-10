@@ -210,8 +210,6 @@ if not DEBUG:
 OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY', '')
 
 # Email configuration
-# For local dev, OTPs are printed to the terminal console.
-# Switch to smtp backend and fill in EMAIL_* env vars for real email sending.
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
@@ -219,3 +217,12 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'no-reply@ibc.local')
+
+# On macOS, Python's bundled OpenSSL doesn't include CA certificates.
+# If certifi is installed, point SSL_CERT_FILE at its bundle so SMTP TLS works.
+try:
+    import certifi
+    if not os.environ.get('SSL_CERT_FILE'):
+        os.environ['SSL_CERT_FILE'] = certifi.where()
+except ImportError:
+    pass
