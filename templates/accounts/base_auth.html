@@ -4,280 +4,535 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ page_title }} | IBC{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #f6efe9;
-            --panel: rgba(255, 255, 255, 0.92);
-            --surface: rgba(255, 255, 255, 0.96);
-            --ink: #231116;
-            --muted: #6f5961;
-            --border: rgba(95, 16, 38, 0.12);
-            --brand: #5f1026;
-            --brand-dark: #4b0b1d;
-            --brand-soft: #f4dde3;
-            --saffron: #d97706;
-            --success: #166534;
-            --danger: #b42318;
-            --shadow: 0 28px 70px rgba(95, 16, 38, 0.16);
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        * {
-            box-sizing: border-box;
+        :root {
+            --brand:        #5c1228;
+            --brand-dark:   #3d0a18;
+            --brand-mid:    #7a1a36;
+            --brand-bg:     #fce8ed;
+            --amber:        #c2410c;
+            --fg:           #111827;
+            --fg-muted:     #6b7280;
+            --fg-faint:     #9ca3af;
+            --bg:           #f9fafb;
+            --surface:      #ffffff;
+            --border:       #e5e7eb;
+            --danger:       #dc2626;
+            --danger-bg:    #fef2f2;
+            --success:      #15803d;
+            --success-bg:   #f0fdf4;
+            --radius:       8px;
+            --radius-md:    12px;
         }
 
         body {
-            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--fg);
+            background: var(--bg);
             min-height: 100vh;
-            font-family: "Avenir Next", "Segoe UI", sans-serif;
-            color: var(--ink);
-            background:
-                radial-gradient(circle at top left, rgba(217, 119, 6, 0.14), transparent 34%),
-                radial-gradient(circle at bottom right, rgba(95, 16, 38, 0.12), transparent 38%),
-                linear-gradient(135deg, #fdf8f3 0%, #f7ede6 48%, #f6f0eb 100%);
         }
 
-        a {
-            color: var(--brand);
-            text-decoration: none;
-        }
+        a { color: var(--brand); text-decoration: none; font-weight: 600; }
+        a:hover { text-decoration: underline; }
 
-        a:hover {
-            color: var(--brand-dark);
-        }
-
-        .auth-page {
+        /* ── Split layout ──────────────────────────────────────────── */
+        .auth-layout {
+            display: grid;
+            grid-template-columns: 420px 1fr;
             min-height: 100vh;
-            padding: 24px;
+        }
+
+        /* ── Left brand rail ──────────────────────────────────────── */
+        .brand-rail {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(155deg, var(--brand-dark) 0%, var(--brand) 55%, var(--brand-mid) 100%);
             display: flex;
+            flex-direction: column;
+            padding: 48px 44px;
+            color: #fff;
+        }
+
+        /* subtle decorative circles */
+        .brand-rail::before {
+            content: '';
+            position: absolute;
+            width: 400px; height: 400px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.035);
+            bottom: -130px; right: -100px;
+            pointer-events: none;
+        }
+        .brand-rail::after {
+            content: '';
+            position: absolute;
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.07);
+            top: 100px; right: 20px;
+            pointer-events: none;
+        }
+
+        .brand-mark {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            width: 50px; height: 50px;
+            border-radius: 13px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.18);
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 17px;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+            color: #fff;
+            margin-bottom: 52px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
         }
 
-        .auth-shell {
-            width: min(480px, 100%);
+        .brand-copy {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
         }
 
-        .panel-card {
-            padding: 34px 32px 30px;
-            border-radius: 28px;
-            border: 1px solid rgba(95, 16, 38, 0.1);
-            background: var(--panel);
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(14px);
+        .brand-company {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(26px, 2.8vw, 36px);
+            font-weight: 900;
+            line-height: 1.18;
+            letter-spacing: -0.025em;
+            color: #fff;
+            margin-bottom: 14px;
         }
 
-        .panel-eyebrow {
-            margin: 0 0 12px;
-            color: var(--saffron);
-            font-size: 0.8rem;
-            font-weight: 800;
-            letter-spacing: 0.14em;
+        .brand-tagline {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.65;
+            margin-bottom: 42px;
+        }
+
+        .brand-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 13px;
+        }
+
+        .brand-features li {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            font-size: 13.5px;
+            color: rgba(255,255,255,0.78);
+            font-weight: 500;
+        }
+
+        .feature-check {
+            flex-shrink: 0;
+            width: 19px; height: 19px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.18);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .feature-check svg { display: block; }
+
+        .brand-bottom {
+            margin-top: auto;
+            padding-top: 44px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Right form rail ──────────────────────────────────────── */
+        .form-rail {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 32px;
+            background: var(--surface);
+            min-height: 100vh;
+        }
+
+        .form-rail-inner {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        /* mobile-only brand bar */
+        .mobile-brand {
+            display: none;
+            align-items: center;
+            gap: 11px;
+            margin-bottom: 32px;
+            padding-bottom: 28px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .mobile-mark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            background: var(--brand);
+            color: #fff;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 0.06em;
+        }
+
+        .mobile-name {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--fg);
+        }
+
+        /* ── Form header ──────────────────────────────────────────── */
+        .form-header { margin-bottom: 28px; }
+
+        .form-eyebrow {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
+            color: var(--amber);
+            margin-bottom: 9px;
         }
 
-        .panel-title {
-            margin: 0;
-            font-family: "Georgia", "Times New Roman", serif;
-            font-size: clamp(2rem, 4vw, 2.6rem);
-            line-height: 1.08;
-            letter-spacing: -0.04em;
+        .form-title {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(22px, 2.5vw, 27px);
+            font-weight: 700;
+            line-height: 1.22;
+            letter-spacing: -0.022em;
+            color: var(--fg);
         }
 
-        .panel-subtitle {
-            margin: 14px 0 0;
-            color: var(--muted);
-            font-size: 0.96rem;
+        .form-subtitle {
+            margin-top: 8px;
+            font-size: 13.5px;
+            color: var(--fg-muted);
             line-height: 1.6;
         }
 
-        .auth-helper {
-            margin: 18px 0 0;
-            color: var(--muted);
-            font-size: 0.9rem;
-            line-height: 1.55;
-        }
-
-        .messages {
-            display: grid;
-            gap: 10px;
-            margin: 20px 0 0;
-        }
-
-        .message {
-            padding: 12px 14px;
-            border-radius: 14px;
-            border: 1px solid var(--border);
-            background: #ffffff;
-            color: var(--ink);
-            font-size: 0.93rem;
-            line-height: 1.5;
-        }
-
-        .message.error {
-            border-color: rgba(180, 35, 24, 0.18);
-            background: #fff4f3;
-            color: var(--danger);
-        }
-
-        .message.success {
-            border-color: rgba(22, 101, 52, 0.18);
-            background: #f0fdf4;
-            color: var(--success);
-        }
-
-        .auth-form {
-            margin-top: 24px;
-            display: grid;
-            gap: 18px;
-        }
-
-        .field-group {
+        /* ── Toast messages ───────────────────────────────────────── */
+        .messages-stack {
             display: grid;
             gap: 8px;
+            margin-bottom: 20px;
         }
 
-        .field-label {
-            font-size: 0.93rem;
-            font-weight: 700;
-            color: var(--ink);
+        .message-item {
+            padding: 11px 14px;
+            border-radius: var(--radius-md);
+            font-size: 13.5px;
+            line-height: 1.5;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--fg);
         }
+
+        .message-item.error   { background: var(--danger-bg);  border-color: rgba(220,38,38,.2);  color: var(--danger);  }
+        .message-item.success { background: var(--success-bg); border-color: rgba(21,128,61,.2);  color: var(--success); }
+
+        /* ── Auth form ────────────────────────────────────────────── */
+        .auth-form { display: grid; gap: 16px; }
+
+        .field-group { display: grid; gap: 6px; }
+
+        .field-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--fg);
+            letter-spacing: 0.01em;
+        }
+
+        /* password wrapper for show/hide toggle */
+        .password-wrap { position: relative; }
+        .password-wrap .auth-input { padding-right: 44px; }
+
+        .pwd-toggle {
+            position: absolute;
+            right: 12px; top: 50%;
+            transform: translateY(-50%);
+            border: none; background: none; cursor: pointer;
+            padding: 4px;
+            color: var(--fg-faint);
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 4px;
+            transition: color 0.15s;
+        }
+        .pwd-toggle:hover { color: var(--fg-muted); }
 
         .auth-input {
             width: 100%;
-            padding: 14px 15px;
-            border: 1px solid rgba(95, 16, 38, 0.15);
-            border-radius: 14px;
+            height: 44px;
+            padding: 0 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
             background: var(--surface);
-            color: var(--ink);
-            font-size: 1rem;
-            transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            -webkit-appearance: none;
+            appearance: none;
         }
+
+        .auth-input::placeholder { color: var(--fg-faint); }
 
         .auth-input:focus {
             outline: none;
-            border-color: rgba(95, 16, 38, 0.44);
-            box-shadow: 0 0 0 4px rgba(95, 16, 38, 0.1);
-            transform: translateY(-1px);
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(92,18,40,.1);
         }
 
-        .field-help {
-            color: var(--muted);
-            font-size: 0.85rem;
-            line-height: 1.5;
+        /* OTP code field */
+        input[autocomplete="one-time-code"].auth-input {
+            letter-spacing: 0.3em;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
         }
+
+        .field-help { font-size: 12px; color: var(--fg-faint); }
 
         .field-errors {
-            margin: 0;
-            padding: 0;
             list-style: none;
             display: grid;
-            gap: 4px;
+            gap: 3px;
+        }
+
+        .field-errors li {
+            font-size: 12.5px;
+            font-weight: 500;
             color: var(--danger);
-            font-size: 0.85rem;
-            font-weight: 600;
         }
 
         .form-errors {
-            margin: 0;
-            padding: 14px 16px;
-            border-radius: 16px;
             list-style: none;
-            background: #fff4f3;
-            border: 1px solid rgba(180, 35, 24, 0.18);
+            padding: 11px 14px;
+            border-radius: var(--radius-md);
+            background: var(--danger-bg);
+            border: 1px solid rgba(220,38,38,.18);
             color: var(--danger);
+            font-size: 13.5px;
             display: grid;
-            gap: 6px;
-            font-size: 0.92rem;
+            gap: 4px;
         }
 
+        /* ── Buttons ──────────────────────────────────────────────── */
         .auth-actions {
             display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 4px;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 6px;
         }
 
         .auth-button,
         .auth-button-secondary {
+            width: 100%;
+            height: 44px;
+            padding: 0 20px;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.01em;
+            transition: background 0.15s, transform 0.1s, box-shadow 0.15s, border-color 0.15s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-height: 48px;
-            padding: 0 18px;
-            border-radius: 999px;
-            border: 1px solid transparent;
-            font-size: 0.95rem;
-            font-weight: 700;
-            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-            cursor: pointer;
         }
 
         .auth-button {
-            background: linear-gradient(135deg, var(--brand), var(--brand-dark));
-            color: #ffffff;
-            box-shadow: 0 16px 28px rgba(95, 16, 38, 0.18);
+            border: none;
+            background: var(--brand);
+            color: #fff;
+            box-shadow: 0 1px 3px rgba(92,18,40,.3), 0 4px 12px rgba(92,18,40,.14);
         }
 
-        .auth-button:hover,
-        .auth-button:focus-visible {
+        .auth-button:hover {
+            background: var(--brand-dark);
             transform: translateY(-1px);
-            background: linear-gradient(135deg, #6d1630, #531022);
-            color: #ffffff;
+            box-shadow: 0 2px 6px rgba(92,18,40,.35), 0 6px 18px rgba(92,18,40,.2);
+            color: #fff;
+            text-decoration: none;
         }
+
+        .auth-button:active { transform: translateY(0); }
 
         .auth-button-secondary {
-            background: var(--brand-soft);
-            border-color: rgba(95, 16, 38, 0.12);
-            color: var(--brand);
+            border: 1.5px solid var(--border);
+            background: var(--surface);
+            color: var(--fg);
         }
 
-        .auth-button-secondary:hover,
-        .auth-button-secondary:focus-visible {
-            transform: translateY(-1px);
-            background: #eed2da;
-            color: var(--brand-dark);
+        .auth-button-secondary:hover {
+            background: var(--bg);
+            border-color: #d1d5db;
+            color: var(--fg);
+            text-decoration: none;
         }
 
+        /* ── Footer links ─────────────────────────────────────────── */
         .auth-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px 16px;
+            gap: 6px 16px;
             margin-top: 20px;
-            color: var(--muted);
-            font-size: 0.91rem;
+            font-size: 13.5px;
+            color: var(--fg-muted);
         }
 
-        .auth-meta a {
-            font-weight: 700;
+        /* ── OTP info box ─────────────────────────────────────────── */
+        .auth-helper {
+            font-size: 13.5px;
+            color: var(--fg-muted);
+            line-height: 1.6;
+            padding: 11px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            margin-bottom: 4px;
         }
 
-        @media (max-width: 560px) {
-            .auth-page {
-                padding: 18px;
-            }
+        .auth-helper strong { color: var(--fg); font-weight: 600; }
 
-            .panel-card {
-                padding: 26px 22px 24px;
-                border-radius: 24px;
+        /* ── Page footer ──────────────────────────────────────────── */
+        .form-footer {
+            margin-top: 44px;
+            font-size: 12px;
+            color: var(--fg-faint);
+            text-align: center;
+        }
+
+        /* ── Divider ──────────────────────────────────────────────── */
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 4px 0;
+            color: var(--fg-faint);
+            font-size: 12px;
+        }
+        .auth-divider::before, .auth-divider::after {
+            content: ''; flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── Responsive ───────────────────────────────────────────── */
+        @media (max-width: 820px) {
+            .auth-layout { grid-template-columns: 1fr; }
+            .brand-rail  { display: none; }
+            .mobile-brand { display: flex; }
+            .form-rail {
+                padding: 32px 24px;
+                justify-content: flex-start;
             }
+            .form-rail-inner { max-width: 100%; }
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <div class="auth-page">
-        <div class="auth-shell">
-            <section class="panel-card">
-                <p class="panel-eyebrow">{% block panel_eyebrow %}IBC Auth{% endblock %}</p>
-                <h1 class="panel-title">{{ page_title }}</h1>
-                {% if page_subtitle %}
-                    <p class="panel-subtitle">{{ page_subtitle }}</p>
-                {% endif %}
+    <div class="auth-layout">
+
+        <!-- ── Brand Rail ─────────────────────────────────────────── -->
+        <aside class="brand-rail">
+            <div class="brand-mark">IBC</div>
+
+            <div class="brand-copy">
+                <h2 class="brand-company">Indian Biryani<br>Company</h2>
+                <p class="brand-tagline">
+                    Smart procurement for every kitchen — manage vendors,
+                    purchase orders, and invoices all in one place.
+                </p>
+                <ul class="brand-features">
+                    <li>
+                        <span class="feature-check">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                        Purchase order management
+                    </li>
+                    <li>
+                        <span class="feature-check">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                        Invoice reconciliation &amp; OCR
+                    </li>
+                    <li>
+                        <span class="feature-check">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                        Vendor price tracking
+                    </li>
+                    <li>
+                        <span class="feature-check">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                        Procurement analytics dashboard
+                    </li>
+                </ul>
+            </div>
+
+            <p class="brand-bottom">© 2025 Indian Biryani Company</p>
+        </aside>
+
+        <!-- ── Form Rail ──────────────────────────────────────────── -->
+        <main class="form-rail">
+            <div class="form-rail-inner">
+
+                <!-- Mobile brand header (hidden on desktop) -->
+                <div class="mobile-brand">
+                    <span class="mobile-mark">IBC</span>
+                    <span class="mobile-name">Indian Biryani Company</span>
+                </div>
+
+                <div class="form-header">
+                    <span class="form-eyebrow">{% block panel_eyebrow %}{% endblock %}</span>
+                    <h1 class="form-title">{{ page_title }}</h1>
+                    {% if page_subtitle %}
+                        <p class="form-subtitle">{{ page_subtitle }}</p>
+                    {% endif %}
+                </div>
 
                 {% if messages %}
-                    <div class="messages">
+                    <div class="messages-stack">
                         {% for message in messages %}
-                            <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                            <div class="message-item {% if message.tags %}{{ message.tags }}{% endif %}">
                                 {{ message }}
                             </div>
                         {% endfor %}
@@ -285,9 +540,46 @@
                 {% endif %}
 
                 {% block auth_panel %}{% endblock %}
-            </section>
-        </div>
+
+                <p class="form-footer">© 2025 Indian Biryani Company</p>
+            </div>
+        </main>
+
     </div>
+
+    <!-- Password show/hide toggle ─────────────────────────────────── -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('input[type="password"]').forEach(function (input) {
+                var wrap = document.createElement('div');
+                wrap.className = 'password-wrap';
+                input.parentNode.insertBefore(wrap, input);
+                wrap.appendChild(input);
+
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'pwd-toggle';
+                btn.setAttribute('aria-label', 'Show password');
+                btn.innerHTML = eyeIcon();
+                wrap.appendChild(btn);
+
+                btn.addEventListener('click', function () {
+                    var show = input.type === 'password';
+                    input.type = show ? 'text' : 'password';
+                    btn.innerHTML = show ? eyeOffIcon() : eyeIcon();
+                    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                });
+            });
+
+            function eyeIcon() {
+                return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+            }
+            function eyeOffIcon() {
+                return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+            }
+        });
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

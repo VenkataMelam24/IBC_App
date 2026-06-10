@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
@@ -119,107 +118,10 @@ def _change_label(difference):
     return "Same"
 
 
-def _field_value(field):
-    if field is None:
-        return None
-    if not isinstance(field, dict):
-        return field
-
-    if "valueObject" in field and field["valueObject"] is not None:
-        return field.get("valueObject")
-
-    if "valueArray" in field and field["valueArray"] is not None:
-        return field.get("valueArray")
-
-    if "valueCurrency" in field:
-        value_currency = field.get("valueCurrency") or {}
-        if value_currency.get("amount") not in (None, ""):
-            return value_currency.get("amount")
-
-    for key in (
-        "valueString",
-        "valueNumber",
-        "valueInteger",
-        "valueDate",
-        "valueTime",
-        "valuePhoneNumber",
-        "valueBoolean",
-        "value",
-    ):
-        if key in field and field[key] not in (None, ""):
-            return field[key]
-
-    if "content" in field and field["content"] not in (None, ""):
-        return field.get("content")
-
-    return None
-
-
-def _money_matches(left_value, right_value):
-    if left_value is None or right_value is None:
-        return False
-    return _quantize_money(left_value) == _quantize_money(right_value)
-
-
 def _derive_invoice_tax_total(invoice_net_total, invoice_grand_total, fallback_tax_total=None):
     if invoice_net_total is not None and invoice_grand_total is not None:
         return _quantize_money(invoice_grand_total - invoice_net_total)
     return _quantize_money(fallback_tax_total) if fallback_tax_total is not None else None
-
-
-def _payload_structure_summary(ocr_payload):
-    analyze_result = ocr_payload.get("analyzeResult", ocr_payload) if isinstance(ocr_payload, dict) else {}
-    documents = []
-    if isinstance(analyze_result, dict):
-        documents = analyze_result.get("documents") or analyze_result.get("documentResults") or []
-
-    document = documents[0] if documents else None
-    fields = document.get("fields") if isinstance(document, dict) else None
-    items_field = fields.get("Items") or fields.get("items") if isinstance(fields, dict) else None
-    value_array = items_field.get("valueArray") if isinstance(items_field, dict) else None
-    first_item = value_array[0] if isinstance(value_array, list) and value_array else None
-
-    return {
-        "top_level_keys": list(ocr_payload.keys()) if isinstance(ocr_payload, dict) else [],
-        "analyze_result_keys": list(analyze_result.keys()) if isinstance(analyze_result, dict) else [],
-        "document_type": type(document).__name__ if document is not None else None,
-        "items_field_type": type(items_field).__name__ if items_field is not None else None,
-        "items_field_keys": list(items_field.keys()) if isinstance(items_field, dict) else None,
-        "items_count": len(value_array) if isinstance(value_array, list) else 0,
-        "first_item_type": type(first_item).__name__ if first_item is not None else None,
-        "first_item_keys": list(first_item.keys()) if isinstance(first_item, dict) else None,
-    }
-
-
-def _document_fields_from_payload(ocr_payload):
-    analyze_result = ocr_payload.get("analyzeResult", ocr_payload) if isinstance(ocr_payload, dict) else {}
-    documents = analyze_result.get("documents") or analyze_result.get("documentResults") or []
-    if not documents:
-        return {}, analyze_result
-
-    document = documents[0] if isinstance(documents[0], dict) else {}
-    return document.get("fields") or {}, analyze_result
-
-
-def _item_field(item_object, *field_names):
-    if not isinstance(item_object, dict):
-        return None
-    for field_name in field_names:
-        if field_name in item_object:
-            return _field_value(item_object.get(field_name))
-    return None
-
-
-def _raw_item_text(raw_item, item_value):
-    if isinstance(item_value, str):
-        return item_value
-    if isinstance(raw_item, str):
-        return raw_item
-    if isinstance(raw_item, dict):
-        content = raw_item.get("content")
-        if isinstance(content, str):
-            return content
-    return ""
 
 
 def _format_decimal_for_storage(value):
@@ -253,34 +155,6 @@ def _normalize_tax_rate_label(rate_value, fallback_label=None):
     return normalized_fallback or "Tax"
 
 
-def _extract_structured_tax_breakdown(fields):
-    tax_breakdown = {}
-    for field_name in ("TaxDetails", "Taxes", "TaxLines"):
-        raw_entries = _field_value(fields.get(field_name)) or []
-        if not isinstance(raw_entries, list):
-            continue
-
-        for raw_entry in raw_entries:
-            item_value = _field_value(raw_entry)
-            item_object = item_value if isinstance(item_value, dict) else {}
-            if not item_object:
-                continue
-
-            amount = _to_decimal(
-                _item_field(item_object, "Amount", "TaxAmount", "Value", "Total"),
-            )
-            if amount is None:
-                continue
-
-            rate_label = _normalize_tax_rate_label(
-                _item_field(item_object, "TaxRate", "Rate", "Percentage", "Percent", "VatRate"),
-                fallback_label=_item_field(item_object, "Description", "Name", "Type"),
-            )
-            tax_breakdown[rate_label] = tax_breakdown.get(rate_label, Decimal("0.00")) + amount
-
-    return tax_breakdown
-
-
 def _extract_text_tax_breakdown(raw_text):
     tax_breakdown = {}
     for line in (raw_text or "").splitlines():
@@ -297,14 +171,6 @@ def _extract_text_tax_breakdown(raw_text):
         tax_breakdown[rate_label] = tax_breakdown.get(rate_label, Decimal("0.00")) + amount
 
     return tax_breakdown
-
-
-def _extract_total_from_fields(fields, *field_names):
-    for field_name in field_names:
-        value = _to_decimal(_field_value(fields.get(field_name)))
-        if value is not None:
-            return value
-    return None
 
 
 def _extract_totals_from_text(raw_text):
@@ -342,51 +208,296 @@ def _extract_totals_from_text(raw_text):
     return extracted_totals
 
 
-def _extract_invoice_totals(ocr_payload):
-    fields, analyze_result = _document_fields_from_payload(ocr_payload)
-    raw_text = (analyze_result.get("content") or "").strip() if isinstance(analyze_result, dict) else ""
+def _guess_content_type(file_name):
+    lowered = (file_name or "").lower()
+    if lowered.endswith(".pdf"):
+        return "application/pdf"
+    if lowered.endswith(".png"):
+        return "image/png"
+    if lowered.endswith(".jpg") or lowered.endswith(".jpeg"):
+        return "image/jpeg"
+    if lowered.endswith(".tif") or lowered.endswith(".tiff"):
+        return "image/tiff"
+    return "application/octet-stream"
 
-    invoice_net_total = _extract_total_from_fields(
-        fields,
-        "SubTotal",
-        "Subtotal",
-        "NetTotal",
-        "TotalExcludingTax",
-        "AmountExcludingTax",
-    )
-    invoice_tax_total = _extract_total_from_fields(
-        fields,
-        "TotalTax",
-        "TaxTotal",
-        "VAT",
-        "Tax",
-    )
-    invoice_grand_total = _extract_total_from_fields(
-        fields,
-        "InvoiceTotal",
-        "AmountDue",
-        "Total",
-        "GrandTotal",
-    )
 
-    tax_breakdown = _extract_structured_tax_breakdown(fields)
+# ---------------------------------------------------------------------------
+# Invoice extraction — pdfplumber (digital PDFs) + OCR.space (scanned/images)
+# Replaces Azure Document Intelligence
+# ---------------------------------------------------------------------------
 
-    text_totals = _extract_totals_from_text(raw_text)
-    invoice_net_total = invoice_net_total if invoice_net_total is not None else text_totals["invoice_net_total"]
-    invoice_grand_total = (
-        invoice_grand_total
-        if invoice_grand_total is not None
-        else text_totals["invoice_grand_total"]
-    )
-    if not tax_breakdown:
-        tax_breakdown = text_totals["invoice_tax_breakdown"] or {}
+# Keywords that identify a column-header row in an invoice table
+_ITEM_HEADER_KEYWORDS = frozenset({
+    # English
+    "description", "item", "product", "article", "name", "details",
+    "qty", "quantity", "units",
+    "unit price", "unit cost", "price",
+    "amount", "total", "line total",
+    # German
+    "bezeichnung", "artikel", "produkt", "pos", "position",
+    "menge", "anzahl",
+    "einzelpreis", "preis", "stückpreis",
+    "gesamtpreis", "betrag",
+})
+
+# Keywords that signal the end of the line-item section (totals block)
+_ITEM_SECTION_END_KEYWORDS = frozenset({
+    # English
+    "subtotal", "sub total", "net total", "net amount",
+    "vat", "tax", "shipping", "delivery", "discount",
+    "grand total", "invoice total", "amount due", "total due", "balance due",
+    # German
+    "zwischensumme", "netto", "gesamt netto", "nettobetrag",
+    "mwst", "ust", "mehrwertsteuer", "steuer",
+    "brutto", "gesamtbetrag", "rechnungsbetrag",
+    "versand", "rabatt",
+})
+
+
+def _line_has_header_keywords(line):
+    lowered = line.lower()
+    return sum(1 for kw in _ITEM_HEADER_KEYWORDS if kw in lowered) >= 2
+
+
+def _line_is_section_end(line):
+    lowered = line.lower()
+    return any(kw in lowered for kw in _ITEM_SECTION_END_KEYWORDS)
+
+
+def _parse_line_items_from_text(raw_text):
+    """
+    Parse invoice line items from raw OCR/extracted text.
+
+    Handles both German (comma as decimal separator) and English (dot) invoices
+    with varying layouts. Returns a list of item dicts compatible with the
+    existing reconciliation pipeline.
+
+    Strategy:
+      - Locate the column-header row; item rows begin on the next line.
+      - Stop when hitting a totals/summary row.
+      - For each candidate row: last number = line total, second-to-last =
+        unit price, optional third-to-last validated as quantity.
+    """
+    items = []
+    lines = [line.strip() for line in (raw_text or "").splitlines() if line.strip()]
+    if not lines:
+        return items
+
+    # Skip past the column header row
+    section_start = 0
+    for idx, line in enumerate(lines):
+        if _line_has_header_keywords(line):
+            section_start = idx + 1
+            break
+
+    for line in lines[section_start:]:
+        if _line_is_section_end(line):
+            break
+
+        if len(line) < 5:
+            continue
+
+        number_spans = list(re.finditer(r'\d+(?:[.,]\d+)*', line))
+        if len(number_spans) < 2:
+            continue
+
+        decimal_values = []
+        for span in number_spans:
+            val = _to_decimal(span.group())
+            if val is not None and val > 0:
+                decimal_values.append(val)
+
+        if len(decimal_values) < 2:
+            continue
+
+        # Product name: text before the first number; strip leading row-index prefix
+        first_num_start = number_spans[0].start()
+        name_part = line[:first_num_start].strip()
+        name_part = re.sub(r'^\s*#?\d+[\.\)\s:]+', '', name_part).strip()
+        name_part = name_part.strip('.-:,;').strip()
+
+        if not name_part or len(name_part) < 2:
+            continue
+
+        line_total = decimal_values[-1]
+        unit_price = decimal_values[-2]
+
+        if len(decimal_values) >= 3:
+            qty_candidate = decimal_values[-3]
+            if unit_price > 0:
+                # Accept candidate if qty * unit_price matches line_total within 2%
+                tolerance = max(qty_candidate * unit_price * Decimal("0.02"), Decimal("0.10"))
+                quantity = qty_candidate if abs(qty_candidate * unit_price - line_total) <= tolerance else Decimal("1")
+            else:
+                quantity = Decimal("1")
+        else:
+            if unit_price > 0 and line_total >= unit_price:
+                qty_derived = _quantize_money(line_total / unit_price)
+                quantity = (
+                    qty_derived
+                    if qty_derived == qty_derived.to_integral() and Decimal("1") <= qty_derived <= Decimal("9999")
+                    else Decimal("1")
+                )
+            else:
+                quantity = Decimal("1")
+
+        items.append({
+            "name": name_part,
+            "normalized_name": normalize_product_name(name_part),
+            "quantity": str(_quantize_money(quantity)),
+            "unit_price": str(_quantize_money(unit_price)),
+            "amount": str(_quantize_money(line_total)),
+            "line_total_source": "invoice",
+            "raw_text": line,
+        })
+
+    return items
+
+
+def _extract_text_with_pdfplumber(invoice_file):
+    """
+    Extract embedded text from a digital PDF using pdfplumber.
+    Returns the full text string, or None if the PDF has no text layer
+    (i.e. it is a scanned image PDF).
+    """
+    try:
+        import pdfplumber
+    except ImportError:
+        logger.warning("pdfplumber is not installed — skipping digital PDF extraction.")
+        return None
+
+    try:
+        invoice_file.open("rb")
+        try:
+            with pdfplumber.open(invoice_file) as pdf:
+                pages_text = [
+                    page.extract_text().strip()
+                    for page in pdf.pages
+                    if page.extract_text()
+                ]
+                full_text = "\n".join(pages_text).strip()
+        finally:
+            invoice_file.close()
+
+        return full_text if full_text else None
+
+    except Exception as exc:
+        logger.warning("pdfplumber extraction failed: %s", exc)
+        return None
+
+
+def _extract_text_with_ocr_space(invoice_file):
+    """
+    Extract text from a scanned or image-based invoice using the OCR.space API.
+
+    Free tier limits: 500 requests/day, 25,000/month, max 1 MB per file.
+    Get a free API key (no credit card) at https://ocr.space/ocrapi
+
+    Uses OCR Engine 2 with German language setting, which also correctly
+    reads English text on the same invoice.
+    """
+    api_key = (getattr(settings, "OCR_SPACE_API_KEY", "") or "").strip()
+    if not api_key:
+        raise InvoiceConfigurationError(
+            "OCR.space is not configured. "
+            "Add OCR_SPACE_API_KEY to your .env file. "
+            "Get a free key at https://ocr.space/ocrapi"
+        )
+
+    content_type = _guess_content_type(invoice_file.name)
+    invoice_file.open("rb")
+    try:
+        file_content = invoice_file.read()
+    finally:
+        invoice_file.close()
+
+    try:
+        response = requests.post(
+            "https://api.ocr.space/parse/image",
+            data={
+                "apikey": api_key,
+                "language": "ger",            # German + Latin alphabet; reads English too
+                "isTable": "true",             # preserve table layout for line items
+                "OCREngine": "2",              # Engine 2: more accurate on complex layouts
+                "scale": "true",               # auto-scale low-resolution scans
+                "detectOrientation": "true",   # fix rotated scans automatically
+                "isCreateSearchablePdf": "false",
+            },
+            files={"file": (invoice_file.name, file_content, content_type)},
+            timeout=60,
+        )
+    except requests.RequestException as exc:
+        raise InvoiceAnalysisError(f"OCR.space request failed: {exc}") from exc
+
+    if not response.ok:
+        raise InvoiceAnalysisError(
+            f"OCR.space returned HTTP {response.status_code}. "
+            "Check your API key and ensure the file is under 1 MB."
+        )
+
+    result = response.json()
+
+    if result.get("IsErroredOnProcessing"):
+        error_messages = result.get("ErrorMessage") or []
+        error_text = (
+            error_messages[0]
+            if isinstance(error_messages, list) and error_messages
+            else str(error_messages or "Unknown OCR error")
+        )
+        raise InvoiceAnalysisError(f"OCR.space failed to process the invoice: {error_text}")
+
+    parsed_results = result.get("ParsedResults") or []
+    if not parsed_results:
+        raise InvoiceAnalysisError("OCR.space returned no results for the invoice.")
+
+    raw_text = "\n".join(
+        page.get("ParsedText", "").strip()
+        for page in parsed_results
+    ).strip()
+
+    if not raw_text:
+        raise InvoiceAnalysisError(
+            "OCR.space extracted no text from the invoice. "
+            "The file may be corrupted or unreadable."
+        )
+
+    return raw_text
+
+
+def extract_invoice_data_with_ocr_space(invoice_file):
+    """
+    Extract structured invoice data using a two-step approach:
+      1. pdfplumber  — free, zero-API-call path for digital PDFs
+      2. OCR.space   — free OCR API fallback for scanned / image invoices
+
+    Returns the same structure as the former Azure function so the entire
+    reconciliation pipeline works without any changes.
+    """
+    # Step 1: try free digital-PDF extraction first
+    raw_text = _extract_text_with_pdfplumber(invoice_file)
+    source = "pdfplumber"
+
+    # Step 2: fall back to OCR.space for scanned / image-based invoices
+    if not raw_text:
+        raw_text = _extract_text_with_ocr_space(invoice_file)
+        source = "ocr_space"
+
+    invoice_items = _parse_line_items_from_text(raw_text)
+    totals = _extract_totals_from_text(raw_text)
+
+    invoice_net_total = _to_decimal(totals.get("invoice_net_total"))
+    invoice_grand_total = _to_decimal(totals.get("invoice_grand_total"))
     invoice_tax_total = _derive_invoice_tax_total(
         invoice_net_total,
         invoice_grand_total,
-        fallback_tax_total=invoice_tax_total,
+        fallback_tax_total=_to_decimal(totals.get("invoice_tax_total")),
     )
+    tax_breakdown = totals.get("invoice_tax_breakdown") or {}
 
     return {
+        "source": source,
+        "raw_text": raw_text,
+        "invoice_items": invoice_items,
         "invoice_net_total": _format_decimal_for_storage(invoice_net_total),
         "invoice_tax_total": _format_decimal_for_storage(invoice_tax_total),
         "invoice_grand_total": _format_decimal_for_storage(invoice_grand_total),
@@ -401,148 +512,9 @@ def _extract_invoice_totals(ocr_payload):
     }
 
 
-def _extract_invoice_items(ocr_payload):
-    summary = _payload_structure_summary(ocr_payload)
-    logger.warning("Azure OCR payload structure summary: %s", summary)
-
-    fields, analyze_result = _document_fields_from_payload(ocr_payload)
-    documents = analyze_result.get("documents") or analyze_result.get("documentResults") or []
-
-    if not documents:
-        return []
-
-    items_field = fields.get("Items") or fields.get("items")
-    raw_items = _field_value(items_field) or []
-
-    extracted_items = []
-    for raw_item in raw_items:
-        item_value = _field_value(raw_item)
-        item_object = item_value if isinstance(item_value, dict) else {}
-        raw_text = _raw_item_text(raw_item, item_value)
-
-        description = (
-            _item_field(item_object, "Description", "Name", "ProductCode", "ItemCode", "Item")
-            or raw_text
-            or ""
-        )
-        quantity = _to_decimal(
-            _item_field(item_object, "Quantity", "Qty"),
-            default=Decimal("0"),
-        )
-        unit_price = _to_decimal(_item_field(item_object, "UnitPrice", "Price"))
-        amount = _to_decimal(_item_field(item_object, "Amount", "LineTotal", "TotalPrice"))
-        amount_source = "invoice" if amount is not None else "derived"
-
-        if unit_price is None and amount is not None and quantity not in (None, Decimal("0")):
-            unit_price = amount / quantity
-
-        if not description and not raw_text and amount is None and quantity in (None, Decimal("0")):
-            logger.warning(
-                "Skipping unparseable Azure OCR invoice item. raw_type=%s item_value_type=%s",
-                type(raw_item).__name__,
-                type(item_value).__name__,
-            )
-            continue
-
-        extracted_items.append(
-            {
-                "name": description or "Unrecognized invoice item",
-                "normalized_name": normalize_product_name(description),
-                "quantity": str(quantity or Decimal("0")),
-                "unit_price": str(_quantize_money(unit_price or Decimal("0"))),
-                "amount": str(_quantize_money(amount or (unit_price or Decimal("0")) * (quantity or Decimal("0")))),
-                "line_total_source": amount_source,
-                "raw_text": raw_text,
-            }
-        )
-
-    return extracted_items
-
-
-def _guess_content_type(file_name):
-    lowered = (file_name or "").lower()
-    if lowered.endswith(".pdf"):
-        return "application/pdf"
-    if lowered.endswith(".png"):
-        return "image/png"
-    if lowered.endswith(".jpg") or lowered.endswith(".jpeg"):
-        return "image/jpeg"
-    if lowered.endswith(".tif") or lowered.endswith(".tiff"):
-        return "image/tiff"
-    return "application/octet-stream"
-
-
-def extract_invoice_data_with_azure(invoice_file):
-    endpoint = (getattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "") or "").strip()
-    api_key = (getattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_KEY", "") or "").strip()
-    api_version = (
-        getattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_API_VERSION", "")
-        or "2023-07-31"
-    ).strip()
-    model_id = (getattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_MODEL", "") or "").strip()
-
-    missing_settings = []
-    if not endpoint:
-        missing_settings.append("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
-    if not api_key:
-        missing_settings.append("AZURE_DOCUMENT_INTELLIGENCE_KEY")
-    if not model_id:
-        missing_settings.append("AZURE_DOCUMENT_INTELLIGENCE_MODEL")
-
-    if missing_settings:
-        raise InvoiceConfigurationError(
-            "Azure Document Intelligence is not configured. Missing: "
-            + ", ".join(missing_settings)
-            + "."
-        )
-
-    base_endpoint = endpoint.rstrip("/")
-    if not base_endpoint.endswith("/formrecognizer"):
-        base_endpoint = f"{base_endpoint}/formrecognizer"
-
-    analyze_url = (
-        f"{base_endpoint}/documentModels/{model_id}:analyze"
-        f"?api-version={api_version}"
-    )
-    headers = {
-        "Ocp-Apim-Subscription-Key": api_key,
-        "Content-Type": _guess_content_type(invoice_file.name),
-    }
-
-    invoice_file.open("rb")
-    try:
-        response = requests.post(
-            analyze_url,
-            headers=headers,
-            data=invoice_file.read(),
-            timeout=60,
-        )
-    finally:
-        invoice_file.close()
-
-    response.raise_for_status()
-    operation_location = response.headers.get("operation-location")
-    if not operation_location:
-        raise InvoiceAnalysisError("Azure OCR did not return an operation status URL.")
-
-    poll_headers = {"Ocp-Apim-Subscription-Key": api_key}
-    for _ in range(60):
-        poll_response = requests.get(operation_location, headers=poll_headers, timeout=60)
-        poll_response.raise_for_status()
-        poll_payload = poll_response.json()
-        status = (poll_payload.get("status") or "").lower()
-        if status == "succeeded":
-            return {
-                "source": "azure_document_intelligence",
-                "raw_text": (poll_payload.get("analyzeResult", {}) or {}).get("content", ""),
-                "invoice_items": _extract_invoice_items(poll_payload),
-                **_extract_invoice_totals(poll_payload),
-            }
-        if status == "failed":
-            raise InvoiceAnalysisError("Azure OCR failed to analyze the uploaded invoice.")
-        time.sleep(1)
-
-    raise InvoiceAnalysisError("Azure OCR timed out while analyzing the uploaded invoice.")
+# ---------------------------------------------------------------------------
+# Financial validation & reconciliation (unchanged)
+# ---------------------------------------------------------------------------
 
 def _build_financial_source_map(validation_result):
     source_map = {}
@@ -672,6 +644,7 @@ def apply_financial_validation(
                 "price_decision": price_decision or "",
             }
         )
+
     effective_tax_total = _quantize_money(invoice_tax_total or Decimal("0.00"))
     effective_grand_total = (
         _quantize_money(effective_net_total + effective_tax_total)
@@ -919,7 +892,7 @@ def classify_invoice_against_purchase_order(
 
 
 def analyze_purchase_order_invoice(purchase_order):
-    extracted_data = extract_invoice_data_with_azure(purchase_order.invoice_file)
+    extracted_data = extract_invoice_data_with_ocr_space(purchase_order.invoice_file)
     validation_result = classify_invoice_against_purchase_order(
         purchase_order,
         extracted_data["invoice_items"],

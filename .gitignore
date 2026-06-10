@@ -18,3 +18,6 @@ db.sqlite3
 # Django uploaded/static build files
 media/
 staticfiles/
+
+# Claude Code session files
+.claude/

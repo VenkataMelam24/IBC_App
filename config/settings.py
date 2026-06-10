@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -24,12 +23,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-*s(!8@+26djc%^$9x4o!rnnc&)m&x^hs@%@n5e84*9=zv#)6^6'
+# Must be set via SECRET_KEY env var in production. The fallback is intentionally
+# invalid so that the app crashes immediately if the env var is missing in prod.
+SECRET_KEY = os.getenv('SECRET_KEY', '')
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY env var is not set. "
+        "Add it to your .env file for local dev or your host's environment for production."
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+# Comma-separated list of allowed hosts, e.g. "127.0.0.1,localhost,.railway.app"
+_raw_allowed = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost')
+ALLOWED_HOSTS = [h.strip() for h in _raw_allowed.split(',') if h.strip()]
 
 
 # Application definition
@@ -51,6 +59,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,8 +80,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'carting.context_processors.cart_item_count',
-                'purchases.context_processors.active_purchase_order_count',
             ],
         },
     },
@@ -84,41 +91,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DB_NAME = os.getenv('DB_NAME')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_HOST = os.getenv('DB_HOST')
-DB_PORT = os.getenv('DB_PORT', '5432')
-AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = (
-    os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
-    or os.getenv("AZURE_OCR_ENDPOINT")
-    or ""
-).strip()
-AZURE_DOCUMENT_INTELLIGENCE_KEY = (
-    os.getenv("AZURE_DOCUMENT_INTELLIGENCE_KEY")
-    or os.getenv("AZURE_OCR_KEY")
-    or ""
-).strip()
-AZURE_DOCUMENT_INTELLIGENCE_MODEL = (
-    os.getenv("AZURE_DOCUMENT_INTELLIGENCE_MODEL")
-    or os.getenv("AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID")
-    or ""
-).strip()
-AZURE_DOCUMENT_INTELLIGENCE_API_VERSION = (
-    os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_VERSION")
-    or "2023-07-31"
-).strip()
-
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
-        'NAME': DB_NAME,
-        'USER': DB_USER,
-        'PASSWORD': DB_PASSWORD,
-        'HOST': DB_HOST,
-        'PORT': DB_PORT,
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
     }
-}
+} }
 
 
 # Password validation
@@ -156,12 +140,82 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-LOGIN_REDIRECT_URL = "inventory:product_list"
-LOGIN_URL = "accounts:login"
-LOGOUT_REDIRECT_URL = "accounts:landing"
-EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@ibc.local")
-ACCOUNTS_OTP_EXPIRY_MINUTES = int(os.getenv("ACCOUNTS_OTP_EXPIRY_MINUTES", "10"))
+# ── Media / file storage ───────────────────────────────────────────────────
+# When SUPABASE_S3_ACCESS_KEY_ID is set, invoices and other uploads go to
+# Supabase Storage (S3-compatible). Falls back to local disk for development.
+_supabase_ref = os.getenv('SUPABASE_REF', 'wzjgfjuggyndpexocbmt')
+SUPABASE_S3_ACCESS_KEY_ID = os.getenv('SUPABASE_S3_ACCESS_KEY_ID', '')
+SUPABASE_S3_SECRET_ACCESS_KEY = os.getenv('SUPABASE_S3_SECRET_ACCESS_KEY', '')
+
+if SUPABASE_S3_ACCESS_KEY_ID and SUPABASE_S3_SECRET_ACCESS_KEY:
+    AWS_ACCESS_KEY_ID = SUPABASE_S3_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY = SUPABASE_S3_SECRET_ACCESS_KEY
+    AWS_STORAGE_BUCKET_NAME = os.getenv('SUPABASE_STORAGE_BUCKET', 'media')
+    AWS_S3_REGION_NAME = os.getenv('SUPABASE_S3_REGION', 'ap-northeast-1')
+    AWS_S3_ENDPOINT_URL = f'https://{_supabase_ref}.supabase.co/storage/v1/s3'
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_QUERYSTRING_EXPIRE = 3600
+    MEDIA_URL = f'https://{_supabase_ref}.supabase.co/storage/v1/object/sign/media/'
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+
+# Default primary key field type for models that don't declare it explicitly.
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Tell @login_required (and login_url parameter) where the login page lives.
+LOGIN_URL = '/login/'
+
+# ── Security headers (safe in both dev and prod) ───────────────────────────
+# Prevent browsers from MIME-sniffing a response away from the declared content-type.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+# Disallow embedding in <iframe>/<frame>/<object> to block clickjacking.
+X_FRAME_OPTIONS = 'DENY'
+# Keep session and CSRF cookies away from JavaScript.
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+# ── Production-only security settings ─────────────────────────────────────
+# These require HTTPS, so they are only applied when DEBUG is off (i.e. production).
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000          # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# OCR.space API (replaces Azure Document Intelligence)
+# Free tier: 500 req/day, 25k/month — get a free key at https://ocr.space/ocrapi
+OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY', '')
+
+# Email configuration
+# For local dev, OTPs are printed to the terminal console.
+# Switch to smtp backend and fill in EMAIL_* env vars for real email sending.
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'no-reply@ibc.local')

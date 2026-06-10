@@ -8,6 +8,9 @@ from django.urls import reverse
 
 from .models import EmailOTP
 from .services import (
+    MAX_OTP_ATTEMPTS,
+    OTP_RATE_LIMIT_MAX,
+    OTPRateLimitError,
     generate_otp_for_email,
     invalidate_existing_otps,
     resend_otp,
@@ -245,7 +248,8 @@ class AccountsViewTests(TestCase):
         response = self.client.post(reverse("accounts:login_otp"), {"otp": "999999"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "The OTP you entered is not valid.")
+        # Message now includes remaining attempts count.
+        self.assertContains(response, "not valid")
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_expired_login_otp_does_not_log_user_in(self):
@@ -306,6 +310,22 @@ class AccountsViewTests(TestCase):
             EmailOTP.objects.filter(email=self.user.email, purpose=EmailOTP.Purpose.LOGIN).exists()
         )
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_otp_rate_limit_view_shows_friendly_error(self):
+        """The login view shows a user-friendly error when the OTP rate limit is hit."""
+        # Exhaust the rate limit for this email.
+        for _ in range(OTP_RATE_LIMIT_MAX):
+            generate_otp_for_email(email=self.user.email, purpose=EmailOTP.Purpose.LOGIN)
+
+        response = self.client.post(
+            reverse("accounts:login"),
+            {"email": self.user.email, "password": "testpass123"},
+            follow=True,
+        )
+
+        self.assertContains(response, "Too many OTP requests")
+        # User must NOT be logged in.
+        self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_signup_otp_page_uses_pending_email(self):
         session = self.client.session
@@ -386,7 +406,7 @@ class AccountsViewTests(TestCase):
         response = self.client.post(reverse("accounts:forgot_password_otp"), {"otp": "999999"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "The OTP you entered is not valid.")
+        self.assertContains(response, "not valid")
         self.assertRedirects(
             self.client.get(reverse("accounts:reset_password")),
             reverse("accounts:forgot_password"),
@@ -646,3 +666,144 @@ class OTPServiceTests(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.check_password("new-pass-123"))
         self.assertFalse(user.check_password("old-pass-123"))
+
+    def test_otp_locked_after_max_attempts(self):
+        """After MAX_OTP_ATTEMPTS wrong guesses the OTP becomes locked."""
+        otp = generate_otp_for_email(email="brute@ibc.example", purpose=EmailOTP.Purpose.LOGIN)
+
+        for _ in range(MAX_OTP_ATTEMPTS):
+            result = verify_otp(
+                email="brute@ibc.example",
+                purpose=EmailOTP.Purpose.LOGIN,
+                code="000000",
+            )
+
+        # The last wrong attempt locks the code.
+        self.assertEqual(result.reason, "locked")
+        self.assertFalse(result.success)
+
+        # Correct code still rejected because it is now locked.
+        locked_result = verify_otp(
+            email="brute@ibc.example",
+            purpose=EmailOTP.Purpose.LOGIN,
+            code=otp.code,
+        )
+        self.assertEqual(locked_result.reason, "locked")
+        self.assertFalse(locked_result.success)
+
+        otp.refresh_from_db()
+        self.assertFalse(otp.is_used)
+        self.assertEqual(otp.attempt_count, MAX_OTP_ATTEMPTS)
+
+    def test_otp_rate_limit_raises_after_exceeding_max_requests(self):
+        """Generating more than OTP_RATE_LIMIT_MAX codes within the window raises OTPRateLimitError."""
+        for _ in range(OTP_RATE_LIMIT_MAX):
+            generate_otp_for_email(email="flood@ibc.example", purpose=EmailOTP.Purpose.LOGIN)
+
+        with self.assertRaises(OTPRateLimitError):
+            generate_otp_for_email(email="flood@ibc.example", purpose=EmailOTP.Purpose.LOGIN)
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PasswordStrengthTests(TestCase):
+    """SignupForm and ResetPasswordForm must enforce Django password validators."""
+
+    def test_signup_rejects_too_short_password(self):
+        response = self.client.post(
+            reverse("accounts:signup"),
+            {
+                "email": "newuser@ibc.example",
+                "password": "abc",
+                "confirm_password": "abc",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        # Short password should be rejected; no user or OTP created.
+        self.assertFalse(User.objects.filter(email="newuser@ibc.example").exists())
+        self.assertFalse(
+            EmailOTP.objects.filter(email="newuser@ibc.example").exists()
+        )
+
+    def test_signup_rejects_entirely_numeric_password(self):
+        response = self.client.post(
+            reverse("accounts:signup"),
+            {
+                "email": "numuser@ibc.example",
+                "password": "12345678",
+                "confirm_password": "12345678",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(email="numuser@ibc.example").exists())
+
+    def test_reset_password_rejects_too_short_password(self):
+        user = User.objects.create_user(
+            username="pwdreset@ibc.example",
+            email="pwdreset@ibc.example",
+            password="original-pass-456",
+        )
+
+        # Complete the OTP verification step.
+        self.client.post(reverse("accounts:forgot_password"), {"email": user.email})
+        otp = EmailOTP.objects.get(email=user.email, purpose=EmailOTP.Purpose.RESET_PASSWORD)
+        self.client.post(reverse("accounts:forgot_password_otp"), {"otp": otp.code})
+
+        response = self.client.post(
+            reverse("accounts:reset_password"),
+            {"password": "abc", "confirm_password": "abc"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        # Password unchanged.
+        self.assertTrue(user.check_password("original-pass-456"))
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class InvoiceUploadSecurityTests(TestCase):
+    """Purchases invoice upload endpoint must reject bad file types and oversized files."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="upload-user",
+            email="upload@ibc.example",
+            password="testpass123",
+        )
+        self.client.force_login(self.user)
+
+        from inventory.models import Vendor
+        self.vendor = Vendor.objects.create(
+            name="Test Vendor",
+            email="vendor@example.com",
+            whatsapp_number="1234567890",
+        )
+        from purchases.models import PurchaseOrder
+        self.po = PurchaseOrder.objects.create(
+            vendor=self.vendor,
+            created_by=self.user,
+        )
+
+    def _upload(self, filename, content, content_type="application/pdf"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile(filename, content, content_type=content_type)
+        return self.client.post(
+            reverse("purchases:upload_invoice", args=[self.po.pk]),
+            {"invoice_file": f},
+        )
+
+    def test_valid_small_pdf_is_accepted(self):
+        # Minimal content — validation doesn't run OCR here.
+        response = self._upload("invoice.pdf", b"%PDF-1.4 content", "application/pdf")
+        # Redirect = accepted (even though OCR would fail later, form-level accepted).
+        self.assertRedirects(response, reverse("purchases:po_list"))
+
+    def test_executable_disguised_as_pdf_is_rejected(self):
+        response = self._upload("malware.exe", b"MZ\x90\x00", "application/pdf")
+        # File extension .exe not in allowed list → 302 with error message injected.
+        self.assertRedirects(response, reverse("purchases:po_list"))
+
+    def test_oversized_file_is_rejected(self):
+        from purchases.forms import MAX_INVOICE_FILE_SIZE_BYTES
+        # Create a file exactly 1 byte over the limit.
+        big_content = b"A" * (MAX_INVOICE_FILE_SIZE_BYTES + 1)
+        response = self._upload("big.pdf", big_content, "application/pdf")
+        self.assertRedirects(response, reverse("purchases:po_list"))

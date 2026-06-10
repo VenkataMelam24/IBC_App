@@ -1,5 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 
 User = get_user_model()
@@ -71,6 +73,11 @@ class SignupForm(BaseStyledForm):
         confirm_password = cleaned_data.get("confirm_password")
         if password and confirm_password and password != confirm_password:
             self.add_error("confirm_password", "Passwords do not match.")
+        elif password:
+            try:
+                validate_password(password)
+            except DjangoValidationError as exc:
+                self.add_error("password", exc)
         return cleaned_data
 
 
@@ -103,8 +110,10 @@ class ForgotPasswordForm(BaseStyledForm):
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
-        if not User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("No account was found for this email.")
+        # Store existence as a flag instead of raising — the view uses this to
+        # decide whether to actually send an OTP, while always showing a neutral
+        # "code sent if registered" message to prevent user enumeration.
+        self.account_exists = User.objects.filter(email__iexact=email).exists()
         return email
 
 
@@ -124,4 +133,9 @@ class ResetPasswordForm(BaseStyledForm):
         confirm_password = cleaned_data.get("confirm_password")
         if password and confirm_password and password != confirm_password:
             self.add_error("confirm_password", "Passwords do not match.")
+        elif password:
+            try:
+                validate_password(password)
+            except DjangoValidationError as exc:
+                self.add_error("password", exc)
         return cleaned_data

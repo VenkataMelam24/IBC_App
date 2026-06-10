@@ -15,6 +15,7 @@ from .forms import (
 )
 from .models import EmailOTP
 from .services import (
+    OTPRateLimitError,
     activate_signup_user,
     prepare_inactive_signup_user,
     resend_otp,
@@ -126,7 +127,11 @@ def login_view(request):
     form = EmailLoginForm(request.POST or None)
     next_value = _get_requested_next_url(request)
     if request.method == "POST" and form.is_valid():
-        resend_otp(email=form.cleaned_data["email"], purpose=EmailOTP.Purpose.LOGIN)
+        try:
+            resend_otp(email=form.cleaned_data["email"], purpose=EmailOTP.Purpose.LOGIN)
+        except OTPRateLimitError as exc:
+            messages.error(request, str(exc))
+            return redirect("accounts:login")
         _store_pending_auth_flow(request, purpose="login", email=form.cleaned_data["email"])
         if next_value:
             pending_flow = request.session.get(PENDING_AUTH_SESSION_KEY, {})
@@ -162,10 +167,14 @@ def signup_view(request):
         except ValueError as exc:
             form.add_error("email", str(exc))
         else:
-            resend_otp(
-                email=form.cleaned_data["email"],
-                purpose=EmailOTP.Purpose.SIGNUP,
-            )
+            try:
+                resend_otp(
+                    email=form.cleaned_data["email"],
+                    purpose=EmailOTP.Purpose.SIGNUP,
+                )
+            except OTPRateLimitError as exc:
+                messages.error(request, str(exc))
+                return redirect("accounts:signup")
             _store_pending_auth_flow(
                 request,
                 purpose="signup",
@@ -207,8 +216,11 @@ def _handle_otp_view(request, *, purpose, heading, subtitle, success_message, su
 
     if request.method == "POST":
         if "resend_otp" in request.POST:
-            resend_otp(email=pending_flow["email"], purpose=purpose)
-            messages.success(request, "A new 6-digit OTP has been sent to your email.")
+            try:
+                resend_otp(email=pending_flow["email"], purpose=purpose)
+                messages.success(request, "A new 6-digit OTP has been sent to your email.")
+            except OTPRateLimitError as exc:
+                messages.error(request, str(exc))
             return redirect(request.path)
         if form.is_valid():
             verification = verify_otp(
@@ -291,16 +303,17 @@ def forgot_password_view(request):
 
     form = ForgotPasswordForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        resend_otp(
-            email=form.cleaned_data["email"],
-            purpose=EmailOTP.Purpose.RESET_PASSWORD,
-        )
-        _store_pending_auth_flow(
-            request,
-            purpose="reset_password",
-            email=form.cleaned_data["email"],
-        )
-        messages.success(request, "A 6-digit password-reset OTP has been sent to your email.")
+        email = form.cleaned_data["email"]
+        # Only send OTP if the account exists. Always show a neutral message and
+        # redirect to the OTP page so attackers can't enumerate registered emails.
+        if form.account_exists:
+            try:
+                resend_otp(email=email, purpose=EmailOTP.Purpose.RESET_PASSWORD)
+            except OTPRateLimitError as exc:
+                messages.error(request, str(exc))
+                return redirect("accounts:forgot_password")
+        _store_pending_auth_flow(request, purpose="reset_password", email=email)
+        messages.success(request, "If that email is registered, a reset code has been sent.")
         return redirect("accounts:forgot_password_otp")
 
     return _render_auth_page(

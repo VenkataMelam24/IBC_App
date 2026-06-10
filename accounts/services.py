@@ -13,6 +13,18 @@ from .models import EmailOTP
 OTP_LENGTH = 6
 User = get_user_model()
 
+# Maximum number of wrong guesses before an OTP is permanently locked.
+# The user must request a fresh code after hitting this limit.
+MAX_OTP_ATTEMPTS = 5
+
+# OTP rate limiting: at most this many new OTPs per email+purpose within the window.
+OTP_RATE_LIMIT_MAX = 5
+OTP_RATE_LIMIT_WINDOW_MINUTES = 60
+
+
+class OTPRateLimitError(Exception):
+    """Raised when too many OTPs have been requested for a given email + purpose."""
+
 
 @dataclass(frozen=True)
 class OTPVerificationResult:
@@ -74,8 +86,28 @@ def invalidate_existing_otps(*, email, purpose):
     ).update(expires_at=now)
 
 
+def _check_otp_rate_limit(*, email, purpose):
+    """
+    Raise OTPRateLimitError if OTP_RATE_LIMIT_MAX codes have been generated for
+    this email + purpose within the last OTP_RATE_LIMIT_WINDOW_MINUTES minutes.
+    This prevents email flooding and OTP generation abuse.
+    """
+    window_start = timezone.now() - timedelta(minutes=OTP_RATE_LIMIT_WINDOW_MINUTES)
+    recent_count = EmailOTP.objects.filter(
+        email__iexact=email,
+        purpose=purpose,
+        created_at__gte=window_start,
+    ).count()
+    if recent_count >= OTP_RATE_LIMIT_MAX:
+        raise OTPRateLimitError(
+            f"Too many OTP requests. Please wait {OTP_RATE_LIMIT_WINDOW_MINUTES} minutes "
+            "before requesting another code."
+        )
+
+
 def generate_otp_for_email(*, email, purpose):
     normalized_email = normalize_email(email)
+    _check_otp_rate_limit(email=normalized_email, purpose=purpose)
     invalidate_existing_otps(email=normalized_email, purpose=purpose)
     return EmailOTP.objects.create(
         email=normalized_email,
@@ -199,15 +231,36 @@ def verify_otp(*, email, purpose, code):
             message="This OTP has expired. Request a new code and try again.",
         )
 
+    # Brute-force protection: lock the OTP after MAX_OTP_ATTEMPTS wrong guesses.
+    if otp.attempt_count >= MAX_OTP_ATTEMPTS:
+        return OTPVerificationResult(
+            success=False,
+            reason="locked",
+            message=(
+                f"Too many incorrect attempts. This code is locked. "
+                "Request a new OTP to continue."
+            ),
+        )
+
     otp.attempt_count += 1
 
     submitted_code = (code or "").strip()
     if submitted_code != otp.code:
         otp.save(update_fields=["attempt_count"])
+        remaining = MAX_OTP_ATTEMPTS - otp.attempt_count
+        if remaining == 0:
+            return OTPVerificationResult(
+                success=False,
+                reason="locked",
+                message=(
+                    "Too many incorrect attempts. This code is now locked. "
+                    "Request a new OTP to continue."
+                ),
+            )
         return OTPVerificationResult(
             success=False,
             reason="invalid",
-            message="The OTP you entered is not valid.",
+            message=f"The OTP you entered is not valid. {remaining} attempt(s) remaining.",
         )
 
     otp.is_used = True
