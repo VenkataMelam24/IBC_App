@@ -18,12 +18,7 @@
         {% endif %}
         {% include "accounts/_form_fields.html" %}
         <div class="auth-actions">
-            <button type="submit" class="auth-button">Continue to OTP</button>
+            <button type="submit" class="auth-button">Log In</button>
         </div>
     </form>
-
-    <div class="auth-meta">
-        <a href="{% url 'accounts:forgot_password' %}">Forgot password?</a>
-        <span>New here? <a href="{% url 'accounts:signup' %}">Create Account</a></span>
-    </div>
 {% endblock %}
