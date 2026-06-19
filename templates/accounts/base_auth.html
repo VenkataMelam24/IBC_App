@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,20 +7,20 @@
     <title>{% block title %}{{ page_title }} | IBC{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --brand:        #5c1228;
-            --brand-dark:   #3d0a18;
-            --brand-mid:    #7a1a36;
-            --brand-bg:     #fce8ed;
-            --amber:        #c2410c;
+            --brand:        #6B1E2E;
+            --brand-dark:   #4e1621;
+            --brand-mid:    #852438;
+            --brand-bg:     #F8F4EC;
+            --amber:        #E8A820;
             --fg:           #111827;
             --fg-muted:     #6b7280;
             --fg-faint:     #9ca3af;
-            --bg:           #f9fafb;
+            --bg:           #F8F4EC;
             --surface:      #ffffff;
             --border:       #e5e7eb;
             --danger:       #dc2626;
@@ -31,7 +32,7 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Lora', Georgia, serif;
             font-size: 14px;
             line-height: 1.5;
             color: var(--fg);
@@ -80,23 +81,32 @@
             pointer-events: none;
         }
 
-        .brand-mark {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 50px; height: 50px;
-            border-radius: 13px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.18);
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: 17px;
-            font-weight: 900;
-            letter-spacing: 0.05em;
-            color: #fff;
-            margin-bottom: 52px;
-            flex-shrink: 0;
+        .brand-logo {
+            margin-bottom: 44px;
             position: relative;
             z-index: 1;
+            flex-shrink: 0;
+        }
+
+        .brand-logo-mark {
+            display: block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: clamp(2.8rem, 4vw, 3.6rem);
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.08em;
+            line-height: 1;
+        }
+
+        .brand-logo-name {
+            display: block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 0.52rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.55);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-top: 6px;
         }
 
         .brand-copy {
@@ -106,16 +116,6 @@
             justify-content: center;
             position: relative;
             z-index: 1;
-        }
-
-        .brand-company {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: clamp(26px, 2.8vw, 36px);
-            font-weight: 900;
-            line-height: 1.18;
-            letter-spacing: -0.025em;
-            color: #fff;
-            margin-bottom: 14px;
         }
 
         .brand-tagline {
@@ -187,25 +187,26 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .mobile-mark {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 38px; height: 38px;
-            border-radius: 10px;
-            background: var(--brand);
-            color: #fff;
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: 13px;
-            font-weight: 900;
-            letter-spacing: 0.06em;
+        .mobile-logo-mark {
+            display: block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--brand);
+            letter-spacing: 0.08em;
+            line-height: 1;
         }
 
-        .mobile-name {
-            font-family: 'Playfair Display', Georgia, serif;
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--fg);
+        .mobile-logo-name {
+            display: block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 0.48rem;
+            font-weight: 400;
+            color: var(--brand);
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            margin-top: 4px;
+            opacity: 0.75;
         }
 
         /* ── Form header ──────────────────────────────────────────── */
@@ -213,6 +214,7 @@
 
         .form-eyebrow {
             display: inline-block;
+            font-family: 'Syne', sans-serif;
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 0.1em;
@@ -222,7 +224,7 @@
         }
 
         .form-title {
-            font-family: 'Playfair Display', Georgia, serif;
+            font-family: 'Cinzel', Georgia, serif;
             font-size: clamp(22px, 2.5vw, 27px);
             font-weight: 700;
             line-height: 1.22;
@@ -263,6 +265,7 @@
         .field-group { display: grid; gap: 6px; }
 
         .field-label {
+            font-family: 'Syne', sans-serif;
             font-size: 13px;
             font-weight: 600;
             color: var(--fg);
@@ -357,7 +360,7 @@
             height: 44px;
             padding: 0 20px;
             border-radius: var(--radius);
-            font-family: inherit;
+            font-family: 'Syne', sans-serif;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
@@ -464,10 +467,12 @@
 
         <!-- ── Brand Rail ─────────────────────────────────────────── -->
         <aside class="brand-rail">
-            <div class="brand-mark">IBC</div>
+            <div class="brand-logo">
+                <span class="brand-logo-mark">IBC</span>
+                <span class="brand-logo-name">Indian Biryani Company</span>
+            </div>
 
             <div class="brand-copy">
-                <h2 class="brand-company">Indian Biryani<br>Company</h2>
                 <p class="brand-tagline">
                     Smart procurement for every kitchen — manage vendors,
                     purchase orders, and invoices all in one place.
@@ -517,8 +522,10 @@
 
                 <!-- Mobile brand header (hidden on desktop) -->
                 <div class="mobile-brand">
-                    <span class="mobile-mark">IBC</span>
-                    <span class="mobile-name">Indian Biryani Company</span>
+                    <div class="mobile-logo">
+                        <span class="mobile-logo-mark">IBC</span>
+                        <span class="mobile-logo-name">Indian Biryani Company</span>
+                    </div>
                 </div>
 
                 <div class="form-header">

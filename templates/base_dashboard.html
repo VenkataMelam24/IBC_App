@@ -1,23 +1,27 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}IBC{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #f4f6f8;
+            --bg: #F8F4EC;
             --panel: #ffffff;
-            --sidebar: #5f1026;
-            --sidebar-active: #7b1a38;
-            --sidebar-muted: #e7c6d0;
-            --sidebar-link: #fff5f7;
+            --sidebar: #6B1E2E;
+            --sidebar-active: #852438;
+            --sidebar-muted: #e8d4b8;
+            --sidebar-link: #fff8f0;
             --text: #111827;
             --muted: #6b7280;
             --border: #dbe2ea;
-            --accent: #7b1a38;
-            --accent-dark: #5d142b;
-            --accent-soft: #f7e8ed;
+            --accent: #6B1E2E;
+            --accent-dark: #4e1621;
+            --accent-soft: #fdf3d8;
         }
 
         * {
@@ -31,7 +35,7 @@
 
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Lora', Georgia, serif;
             background: var(--bg);
             color: var(--text);
             overflow: hidden;
@@ -46,8 +50,8 @@
         .sidebar {
             display: flex;
             flex-direction: column;
-            width: 250px;
-            flex: 0 0 250px;
+            width: 200px;
+            flex: 0 0 200px;
             height: 100vh;
             padding: 24px 20px;
             background: var(--sidebar);
@@ -55,9 +59,29 @@
             overflow-y: auto;
         }
 
-        .sidebar-title {
-            margin: 0 0 28px;
-            font-size: 1.4rem;
+        .sidebar-logo {
+            margin-bottom: 28px;
+        }
+
+        .sidebar-logo-mark {
+            display: block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.08em;
+            line-height: 1;
+        }
+
+        .sidebar-logo-name {
+            display: block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 0.5rem;
+            font-weight: 400;
+            color: rgba(255, 248, 240, 0.6);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-top: 5px;
         }
 
         .sidebar-nav {
@@ -82,6 +106,8 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 500;
         }
 
         .cart-badge {
@@ -92,10 +118,11 @@
             justify-content: center;
             padding: 0 8px;
             border-radius: 999px;
-            background: #f6d9e2;
-            color: #5d142b;
+            background: #E8A820;
+            color: #ffffff;
             font-size: 0.85rem;
             font-weight: 700;
+            font-family: 'Syne', sans-serif;
         }
 
         .sidebar-nav a:hover,
@@ -217,12 +244,31 @@
             }
         }
     </style>
+    <style>
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 16px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-decoration: none;
+        }
+        .back-link:hover {
+            color: var(--accent);
+        }
+    </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
     <div class="dashboard">
         <aside class="sidebar">
-            <h1 class="sidebar-title">IBC</h1>
+            <div class="sidebar-logo">
+                <span class="sidebar-logo-mark">IBC</span>
+                <span class="sidebar-logo-name">Indian Biryani Company</span>
+            </div>
             <nav class="sidebar-nav">
                 <a href="{% url 'inventory:master_inventory' %}" class="{% block nav_master_inventory %}{% endblock %}">
                     <span class="nav-label">Master Inventory</span>

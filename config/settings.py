@@ -141,6 +141,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # ── Media / file storage ───────────────────────────────────────────────────
 # When SUPABASE_S3_ACCESS_KEY_ID is set, invoices and other uploads go to
